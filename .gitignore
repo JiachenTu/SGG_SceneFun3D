@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Output files
+outputs/
+outputs_*/
+logs/
+*.log
+
+# Data files (large)
+*.ply
+*.npy
+data/
+data_*/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Model files
+*.pkl
+*.pt
+*.pth
+*.h5
+
+# Config files with sensitive data
+config.json
+secrets.json
