@@ -1,6 +1,28 @@
 # ARKitScenes & SceneFun3D Data Alignment
 
-This directory contains example data and alignment tools for integrating ARKitScenes 3D object detection with SceneFun3D affordance annotations.
+🚀 **Enhanced Scene Graph Generation Pipeline v2.0 (In Development)**
+
+This directory contains an enhanced pipeline for integrating ARKitScenes 3D object detection with SceneFun3D affordance annotations to generate hierarchical scene graphs.
+
+## 📈 Version History & Progress
+
+### 🏷️ **v1.0** - Baseline Implementation *(September 25, 2025)*
+- ✅ Initial pipeline with custom parsers
+- ✅ Scene graph generation (4-level hierarchy)
+- ✅ Coordinate transformation utilities
+- ✅ Visualization system
+- ❌ **Known Issues**: Object-affordance linking problems, fallback to uncertain connections
+
+### 🚧 **v2.0** - Enhanced Pipeline *(In Progress)*
+- ✅ **Git repository**: https://github.com/JiachenTu/SGG_SceneFun3D.git
+- ✅ **SceneFun3D DataParser integration**: Official toolkit compatibility verified
+- ✅ **Coordinate system inversion**: Transform ARKit objects → SceneFun3D space
+- 🔄 **Enhanced spatial analysis**: Mesh-based geometry + strict confidence thresholds
+- 🔄 **Floating affordances**: Remove fallback logic, allow unattached affordances
+- ⏳ **Scene graph v2**: Support floating affordance nodes
+- ⏳ **Enhanced visualizations**: Show confident vs uncertain relationships
+
+---
 
 ## Example Data: Bathroom Scene
 
@@ -667,10 +689,129 @@ python -c "import open3d as o3d; print(o3d.__version__)"
 - **Scene graphs generated**: 6
 - **High confidence relationships**: 4-6
 
-This framework enables robust 3D scene understanding that combines geometric precision with functional semantics.
+## 🚀 v2.0 Enhanced Pipeline Architecture
+
+### 🔄 **Key Strategic Changes**
+
+#### 1. **Coordinate System Inversion**
+- **v1.0 Approach**: Transform SceneFun3D affordance points → ARKitScenes coordinates
+- **v2.0 Approach**: Transform ARKitScenes objects → SceneFun3D coordinates
+- **Benefit**: Keep affordances in native high-resolution laser scan space
+
+```python
+# v1.0: affordance_points_arkit = transform(affordance_points_scenefun3d)
+# v2.0: object_bbox_scenefun3d = inverse_transform(object_bbox_arkit)
+
+transformer = EnhancedCoordinateTransformer(data_root, "422203", "42445781")
+arkit_center = np.array([29.01, 249.20, -9.67])  # ARKit toilet center
+scenefun3d_center = transformer.transform_arkit_to_scenefun3d(arkit_center)
+# Result: [140.58, 207.08, 83.57] in SceneFun3D coordinates
+```
+
+#### 2. **Official SceneFun3D Toolkit Integration**
+- **v1.0**: Custom parsers with potential compatibility issues
+- **v2.0**: Official `DataParser` from SceneFun3D toolkit
+- **Verified Compatibility**:
+  - ✅ Laser scan: 2.35M points (perfect match)
+  - ✅ ARKit reconstruction: 361K vertices, 642K faces
+  - ✅ Transform matrix: Perfect round-trip accuracy
+  - ✅ Annotations: 8 annotations loaded
+  - ✅ Task descriptions: 6 tasks loaded correctly
+
+```python
+from utils.data_parser import DataParser
+parser = DataParser(data_root)
+laser_scan = parser.get_laser_scan("422203")           # 2.35M points
+arkit_mesh = parser.get_arkit_reconstruction("422203", "42445781")  # Official mesh
+```
+
+#### 3. **Enhanced Spatial Analysis**
+- **v1.0 Issues**: 0% overlap ratios, all affordances → toilet fallback
+- **v2.0 Approach**: Multi-criteria confidence scoring
+  - **Geometric Overlap** (40%): Bounding box intersection in SceneFun3D space
+  - **Mesh Proximity** (30%): Distance to actual ARKit mesh surface
+  - **Semantic Plausibility** (30%): Object-task compatibility filtering
+
+```python
+confidence = (overlap_ratio * 0.4 +
+             mesh_proximity * 0.3 +
+             semantic_plausibility * 0.3)
+
+# Only accept matches above confidence threshold (default: 0.3)
+if confidence >= 0.3:
+    create_object_affordance_link()
+else:
+    allow_floating_affordance()  # NO FALLBACK
+```
+
+#### 4. **Elimination of Uncertain Connections**
+- **v1.0 Problem**: Fallback logic created false connections
+  - Example: "Turn on tap" → toilet (wrong!)
+- **v2.0 Solution**: Strict confidence thresholds, floating affordances
+  - No confident match = affordance remains unattached
+  - Honest uncertainty representation
+
+### 🧪 **Testing & Validation**
+
+#### **SceneFun3D DataParser Compatibility Test** ✅
+```bash
+cd /home/jiachen/scratch/SceneFun3D/alignment
+python test_scenefun3d_parser.py
+```
+**Results**:
+- ✅ All core functions working perfectly
+- ✅ Data loading matches custom parsers
+- ✅ Transform matrix verification passed
+
+#### **Coordinate Inversion Test** ✅
+```bash
+python utils/enhanced_coordinate_transform.py
+```
+**Results**:
+- ✅ Perfect round-trip accuracy (0.000000 error)
+- ✅ ARKit toilet: [29.01, 249.20, -9.67] → SceneFun3D: [140.58, 207.08, 83.57]
+- ✅ Bounding box transformation working
+
+### 📁 **v2.0 File Structure**
+
+```
+alignment/
+├── README.md                           # ← Enhanced documentation
+├── test_scenefun3d_parser.py          # ← DataParser compatibility test
+├── utils/
+│   └── enhanced_coordinate_transform.py # ← Coordinate system inversion
+├── scripts/
+│   └── enhanced_spatial_analyzer.py    # ← Enhanced spatial analysis (WIP)
+└── [v1.0 files preserved]
+```
+
+### 🎯 **Next Development Steps**
+
+1. **Complete Enhanced Spatial Analysis** 🔄
+   - Fix import path issues
+   - Test mesh-based proximity scoring
+   - Validate floating affordance logic
+
+2. **Update Scene Graph Structure** ⏳
+   - Support unattached affordance nodes
+   - Maintain 4-level hierarchy with floating elements
+
+3. **Enhanced Visualizations** ⏳
+   - Color-code confident vs uncertain relationships
+   - Show floating affordances distinctly
+
+4. **Comprehensive Testing** ⏳
+   - Validate with bathroom scene data
+   - Compare v1.0 vs v2.0 results
+   - Performance benchmarking
+
+---
+
+This framework enables robust 3D scene understanding that combines geometric precision with functional semantics, now with enhanced accuracy and honest uncertainty handling.
 
 ---
 **Created**: September 23, 2025
+**Enhanced**: September 25, 2025
 **Data**: Bathroom scene 422203/42445781
-**Status**: Production-ready pipeline with validation
-**Version**: 1.0
+**Status**: v1.0 Production-ready, v2.0 In Development
+**Repository**: https://github.com/JiachenTu/SGG_SceneFun3D.git
