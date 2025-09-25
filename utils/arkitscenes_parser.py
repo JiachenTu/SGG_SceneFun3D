@@ -13,8 +13,8 @@ from dataclasses import dataclass
 @dataclass
 class OrientedBoundingBox:
     """Represents an oriented 3D bounding box."""
-    centroid: np.ndarray  # [x, y, z] in mm
-    axes_lengths: np.ndarray  # [width, height, depth] in mm
+    centroid: np.ndarray  # [x, y, z] in meters
+    axes_lengths: np.ndarray  # [width, height, depth] in meters
     normalized_axes: np.ndarray  # 3x3 rotation matrix (flattened)
 
     def get_rotation_matrix(self) -> np.ndarray:
@@ -55,15 +55,15 @@ class ARKitObject:
     hierarchy: int
 
     def get_volume(self) -> float:
-        """Calculate the volume of the bounding box in cubic mm."""
+        """Calculate the volume of the bounding box in cubic meters."""
         return np.prod(self.obb.axes_lengths)
 
     def get_size_category(self) -> str:
         """Categorize object by size."""
         volume = self.get_volume()
-        if volume < 1e7:  # < 0.01 m³
+        if volume < 0.01:  # < 0.01 m³
             return "small"
-        elif volume < 1e8:  # < 0.1 m³
+        elif volume < 0.1:  # < 0.1 m³
             return "medium"
         else:
             return "large"
@@ -93,21 +93,21 @@ class ARKitScenesParser:
 
         self.objects = []
         for obj_data in self.data.get('data', []):
-            # Parse main OBB
+            # Parse main OBB (convert from mm to meters)
             obb_data = obj_data['segments']['obb']
             obb = OrientedBoundingBox(
-                centroid=np.array(obb_data['centroid']),
-                axes_lengths=np.array(obb_data['axesLengths']),
+                centroid=np.array(obb_data['centroid']) / 1000.0,  # Convert mm to m
+                axes_lengths=np.array(obb_data['axesLengths']) / 1000.0,  # Convert mm to m
                 normalized_axes=np.array(obb_data['normalizedAxes'])
             )
 
-            # Parse aligned OBB if available
+            # Parse aligned OBB if available (convert from mm to meters)
             obb_aligned = None
             if 'obbAligned' in obj_data['segments']:
                 obb_aligned_data = obj_data['segments']['obbAligned']
                 obb_aligned = OrientedBoundingBox(
-                    centroid=np.array(obb_aligned_data['centroid']),
-                    axes_lengths=np.array(obb_aligned_data['axesLengths']),
+                    centroid=np.array(obb_aligned_data['centroid']) / 1000.0,  # Convert mm to m
+                    axes_lengths=np.array(obb_aligned_data['axesLengths']) / 1000.0,  # Convert mm to m
                     normalized_axes=np.array(obb_aligned_data['normalizedAxes'])
                 )
 
@@ -171,14 +171,14 @@ class ARKitScenesParser:
 
         for obj in self.objects:
             print(f"\n{obj.label.upper()} (ID: {obj.uid[:8]}...)")
-            print(f"  Center: [{obj.obb.centroid[0]:.1f}, {obj.obb.centroid[1]:.1f}, {obj.obb.centroid[2]:.1f}] mm")
-            print(f"  Size: [{obj.obb.axes_lengths[0]:.1f} × {obj.obb.axes_lengths[1]:.1f} × {obj.obb.axes_lengths[2]:.1f}] mm")
-            print(f"  Volume: {obj.get_volume():.0f} mm³ ({obj.get_size_category()})")
+            print(f"  Center: [{obj.obb.centroid[0]:.3f}, {obj.obb.centroid[1]:.3f}, {obj.obb.centroid[2]:.3f}] m")
+            print(f"  Size: [{obj.obb.axes_lengths[0]:.3f} × {obj.obb.axes_lengths[1]:.3f} × {obj.obb.axes_lengths[2]:.3f}] m")
+            print(f"  Volume: {obj.get_volume():.6f} m³ ({obj.get_size_category()})")
             print(f"  Segments: {len(obj.segments)}")
 
         min_bounds, max_bounds = self.get_scene_bounds()
         scene_size = max_bounds - min_bounds
-        print(f"\nScene bounds: [{scene_size[0]:.0f} × {scene_size[1]:.0f} × {scene_size[2]:.0f}] mm")
+        print(f"\nScene bounds: [{scene_size[0]:.3f} × {scene_size[1]:.3f} × {scene_size[2]:.3f}] m")
 
 
 def main():
@@ -196,7 +196,7 @@ def main():
         print(f"\nToilet corners (8 points):")
         corners = toilet.obb.get_corners()
         for i, corner in enumerate(corners):
-            print(f"  Corner {i}: [{corner[0]:.1f}, {corner[1]:.1f}, {corner[2]:.1f}]")
+            print(f"  Corner {i}: [{corner[0]:.3f}, {corner[1]:.3f}, {corner[2]:.3f}]")
 
 
 if __name__ == "__main__":

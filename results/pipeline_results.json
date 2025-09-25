@@ -1,0 +1,214 @@
+{
+  "visit_id": "422203",
+  "video_id": "42445781",
+  "objects": [
+    {
+      "id": "MhdKxnWEXdHg9Nle",
+      "class": "bathtub",
+      "center_arkit_m": [
+        0.057752365838770456,
+        0.24114109258634014,
+        0.15495470160805433
+      ],
+      "center_scenefun3d": [
+        -0.044043691202658185,
+        -0.4338989314449107,
+        92.55095974445956
+      ],
+      "size_m": [
+        0.1643875291119828,
+        0.06063785558839055,
+        0.07311160632926039
+      ]
+    },
+    {
+      "id": "3uGRxuedwz65iEro",
+      "class": "sink",
+      "center_arkit_m": [
+        0.08151216961793205,
+        0.2808400042877756,
+        0.06749037043132494
+      ],
+      "center_scenefun3d": [
+        -0.0045388696228943065,
+        -0.4093636059868182,
+        92.46362173457433
+      ],
+      "size_m": [
+        0.05693943386935481,
+        0.023101684166782432,
+        0.0436989713209234
+      ]
+    },
+    {
+      "id": "80l9QgJ27XfuJBMv",
+      "class": "toilet",
+      "center_arkit_m": [
+        0.0290103114612214,
+        0.249197759707797,
+        -0.009673159621028125
+      ],
+      "center_scenefun3d": [
+        -0.06562870553143062,
+        -0.4129422681213393,
+        92.38637464888106
+      ],
+      "size_m": [
+        0.041988617738284745,
+        0.07951832375949394,
+        0.06717331664681268
+      ]
+    }
+  ],
+  "affordances": [
+    {
+      "id": "0682ad6f-09b5-4257-be3d-9a615bc9283a",
+      "task_description": "Close the bathroom door",
+      "center": [
+        -0.34161627404792333,
+        0.03934782717417004,
+        92.93049658498457
+      ],
+      "point_count": 186,
+      "min_coords": [
+        -0.3688608151674271,
+        0.012227661814540623,
+        92.89908996582031
+      ],
+      "max_coords": [
+        -0.32886081516742705,
+        0.062227661814540626,
+        92.95408996582032
+      ],
+      "size": [
+        0.04,
+        0.05,
+        0.055
+      ],
+      "raw_size": [
+        0.037491291761398315,
+        0.04773007798939943,
+        0.0501556396484375
+      ],
+      "volume_m3": 0.00011,
+      "point_density_per_m3": 1690909.0909090908,
+      "voxel_size_m": 0.005
+    },
+    {
+      "id": "e93e1b5c-0cb6-4712-8ab6-74d39b723072",
+      "task_description": "Close the bathroom door",
+      "center": [
+        -0.4484948194943942,
+        0.11128789148269555,
+        92.92957736284305
+      ],
+      "point_count": 39,
+      "min_coords": [
+        -0.45938088953495027,
+        0.09989535599946976,
+        92.90563110351563
+      ],
+      "max_coords": [
+        -0.43938088953495025,
+        0.11989535599946975,
+        92.95063110351562
+      ],
+      "size": [
+        0.02,
+        0.02,
+        0.045
+      ],
+      "raw_size": [
+        0.016368120908737183,
+        0.015091955661773682,
+        0.043853759765625
+      ],
+      "volume_m3": 1.8e-05,
+      "point_density_per_m3": 2166666.6666666665,
+      "voxel_size_m": 0.005
+    },
+    {
+      "id": "3e9e30c0-de44-44a8-a668-3096bbeff9c9",
+      "task_description": "Open the window above the toilet",
+      "center": [
+        -0.31432391419297173,
+        1.4053286796524411,
+        93.13223648071289
+      ],
+      "point_count": 84,
+      "min_coords": [
+        -0.36117179989814757,
+        1.4028662991523744,
+        93.11583023071289
+      ],
+      "max_coords": [
+        -0.2611717998981476,
+        1.4128662991523742,
+        93.1408302307129
+      ],
+      "size": [
+        0.1,
+        0.01,
+        0.025
+      ],
+      "raw_size": [
+        0.09735709428787231,
+        0.009501814842224121,
+        0.02498626708984375
+      ],
+      "volume_m3": 2.5e-05,
+      "point_density_per_m3": 3360000.0,
+      "voxel_size_m": 0.005
+    }
+  ],
+  "relationships": [
+    {
+      "object_id": "MhdKxnWEXdHg9Nle",
+      "object_class": "bathtub",
+      "affordance_id": "0682ad6f-09b5-4257-be3d-9a615bc9283a",
+      "affordance_task": "Close the bathroom door",
+      "distance": 0.6756923485732041,
+      "confidence": 0.32430765142679585
+    },
+    {
+      "object_id": "MhdKxnWEXdHg9Nle",
+      "object_class": "bathtub",
+      "affordance_id": "e93e1b5c-0cb6-4712-8ab6-74d39b723072",
+      "affordance_task": "Close the bathroom door",
+      "distance": 0.7772777418791427,
+      "confidence": 0.22272225812085733
+    },
+    {
+      "object_id": "3uGRxuedwz65iEro",
+      "object_class": "sink",
+      "affordance_id": "0682ad6f-09b5-4257-be3d-9a615bc9283a",
+      "affordance_task": "Close the bathroom door",
+      "distance": 0.7300241453327981,
+      "confidence": 0.26997585466720186
+    },
+    {
+      "object_id": "3uGRxuedwz65iEro",
+      "object_class": "sink",
+      "affordance_id": "e93e1b5c-0cb6-4712-8ab6-74d39b723072",
+      "affordance_task": "Close the bathroom door",
+      "distance": 0.8278221516478325,
+      "confidence": 0.17217784835216754
+    },
+    {
+      "object_id": "80l9QgJ27XfuJBMv",
+      "object_class": "toilet",
+      "affordance_id": "0682ad6f-09b5-4257-be3d-9a615bc9283a",
+      "affordance_task": "Close the bathroom door",
+      "distance": 0.7594762337473746,
+      "confidence": 0.2405237662526254
+    },
+    {
+      "object_id": "80l9QgJ27XfuJBMv",
+      "object_class": "toilet",
+      "affordance_id": "e93e1b5c-0cb6-4712-8ab6-74d39b723072",
+      "affordance_task": "Close the bathroom door",
+      "distance": 0.846447228074641,
+      "confidence": 0.153552771925359
+    }
+  ]
+}

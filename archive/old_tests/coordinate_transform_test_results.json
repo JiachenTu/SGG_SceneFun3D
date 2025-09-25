@@ -1,0 +1,13 @@
+{
+  "test_config": {
+    "data_root": "/home/jiachen/scratch/SceneFun3D/alignment/data_examples/scenefun3d",
+    "visit_id": "422203",
+    "video_id": "42445781"
+  },
+  "test_results": {
+    "matrix_only": {
+      "success": true,
+      "round_trip_accuracy": {
+        "max_error": 1.2710574864626038e-13,
+        "mean_error": 7.132496642900958e-14,
+        "is_accurate": 

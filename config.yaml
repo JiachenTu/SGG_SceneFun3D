@@ -1,0 +1,96 @@
+# V2.0 Scene Graph Generation Pipeline Configuration
+# This file configures the enhanced pipeline with floating affordances support
+
+# Data configuration
+data:
+  # Root directory containing SceneFun3D data (REQUIRED)
+  # This should contain visit directories like visit_422203/
+  root_path: "/home/jiachen/scratch/SceneFun3D/alignment/data_examples/scenefun3d"
+
+  # Scene identifiers (REQUIRED)
+  visit_id: "422203"
+  video_id: "42445781"
+
+  # ARKitScenes annotation file (REQUIRED)
+  # Path to the 3D object detection annotation JSON file
+  arkitscenes_file: "/home/jiachen/scratch/SceneFun3D/alignment/data_examples/arkitscenes/video_42445781/42445781_3dod_annotation.json"
+
+# Spatial analysis configuration
+spatial_analysis:
+  # Minimum confidence threshold for accepting object-affordance relationships
+  # Relationships below this threshold will result in floating affordances
+  confidence_threshold: 0.2  # Lowered due to 5mm voxel sampling uncertainty
+
+  # Allow floating affordances (affordances without parent objects)
+  # Set to false to force all affordances to have parent objects (not recommended)
+  allow_floating: true
+
+  # Confidence score weights (must sum to 1.0)
+  distance_weight: 0.4    # Weight for distance-based confidence
+  overlap_weight: 0.6     # Weight for bounding box overlap
+
+  # Maximum distance for scoring (in meters)
+  # Points farther than this get distance score = 0
+  # Set to 0.5m (500mm) as reasonable interaction distance
+  max_distance: 0.5
+
+  # 5mm voxel resolution handling
+  voxel_size: 0.005  # 5mm laser scan voxel size in meters
+  spatial_uncertainty: 0.0043  # √3 * (voxel_size/2) ≈ 4.3mm uncertainty
+
+# Output configuration
+output:
+  # Directory for all pipeline outputs
+  directory: "outputs_v2"
+
+  # Save intermediate results (for debugging)
+  save_intermediate: false
+
+  # Output formats
+  formats:
+    scene_graphs: "json"
+    visualizations: false  # Set to true to enable visualization generation
+
+# Logging configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  console: true
+  file: true
+
+# Performance configuration
+performance:
+  # Enable data caching for large files
+  cache_enabled: true
+
+  # Parallel processing (future enhancement)
+  parallel_tasks: false
+
+# Validation configuration
+validation:
+  # Run data validation before processing
+  validate_data: true
+
+  # Validate transformation accuracy
+  validate_transforms: true
+
+  # Round-trip accuracy tolerance
+  transform_tolerance: 1e-6
+
+# Advanced settings (usually don't need to change)
+advanced:
+  # Coordinate system settings
+  coordinate_system:
+    target: "SceneFun3D"  # Always transform TO SceneFun3D coordinates
+    validate_determinant: true
+
+  # Spatial analysis settings
+  spatial_analysis:
+    bbox_expansion_factor: 0.005  # Expand bounding boxes by 1 voxel (5mm)
+    min_affordance_points: 1    # Minimum points for valid affordance
+    min_affordance_volume: 1.25e-7  # 5mm³ minimum volume in m³
+
+  # Scene graph settings
+  scene_graph:
+    include_metadata: true
+    include_confidence_stats: true
+    node_id_format: "semantic"  # "semantic" or "uuid"

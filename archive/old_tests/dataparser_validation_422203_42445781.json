@@ -1,0 +1,90 @@
+{
+  "test_config": {
+    "data_root": "/nas/jiachen/SceneFun3D/alignment/data_examples/scenefun3d",
+    "visit_id": "422203",
+    "video_id": "42445781"
+  },
+  "test_results": {
+    "data_structure": true,
+    "laser_scan": {
+      "success": true,
+      "point_count": 2353539,
+      "has_colors": true,
+      "bounds": {
+        "min": [
+          -1.558921217918396,
+          -7.157546043395996,
+          89.18402099609375
+        ],
+        "max": [
+          2.659313678741455,
+          5.2487287521362305,
+          94.35535430908203
+        ],
+        "range": [
+          4.218234896659851,
+          12.406274795532227,
+          5.171333312988281
+        ]
+      }
+    },
+    "arkit_reconstruction": {
+      "point_cloud": true,
+      "mesh": true
+    },
+    "transform": {
+      "success": true,
+      "shape": [
+        4,
+        4
+      ],
+      "determinant": 1.0000000000000306,
+      "is_homogeneous": true
+    },
+    "annotations": {
+      "success": true,
+      "count": 8,
+      "total_points": 5791,
+      "annotation_ids": [
+        "0682ad6f-09b5-4257-be3d-9a615bc9283a",
+        "e93e1b5c-0cb6-4712-8ab6-74d39b723072",
+        "3e9e30c0-de44-44a8-a668-3096bbeff9c9",
+        "2777270f-6344-4192-abdc-2c0cefd80676",
+        "bfc23a3d-15c9-4851-9bda-83fe7a8f9d94",
+        "5866dc36-deb4-4aac-a1bc-52ce49d86f1a",
+        "90efb7a6-57d0-4e9d-bc8a-d0fd3ccc706c",
+        "e6edf31b-4654-4e6e-925b-abe955623e4b"
+      ]
+    },
+    "descriptions": {
+      "success": true,
+      "count": 6,
+      "tasks": [
+        "Close the bathroom door",
+        "Flush the toilet",
+        "Open the window above the sink",
+        "Open the window above the toilet",
+        "Turn on the tap in the sink",
+        "Unplug the make up mirror"
+      ]
+    },
+    "motions": {
+      "success": true,
+      "count": 7,
+      "motion_types": [
+        "rot",
+        "trans"
+      ]
+    },
+    "consistency": {
+      "success": true,
+      "annotation_coverage": 0.0,
+      "motion_coverage": 0.875,
+      "consistency_score": 0.4375
+    }
+  },
+  "summary": {
+    "total_tests": 8,
+    "passed_tests": 6
+  }
+}

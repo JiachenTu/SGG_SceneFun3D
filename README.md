@@ -1,817 +1,257 @@
-# ARKitScenes & SceneFun3D Data Alignment
+# SceneFun3D Scene Graph Generation Pipeline
 
-🚀 **Enhanced Scene Graph Generation Pipeline v2.0 (In Development)**
+A pipeline for generating hierarchical scene graphs by integrating ARKitScenes 3D object detection with SceneFun3D affordance annotations.
 
-This directory contains an enhanced pipeline for integrating ARKitScenes 3D object detection with SceneFun3D affordance annotations to generate hierarchical scene graphs.
+## Features
 
-## 📈 Version History & Progress
+- **Consistent Meter Units**: All coordinates and measurements in meters throughout the pipeline
+- **5mm Voxel Resolution Awareness**: Properly handles SceneFun3D laser scan resolution limits
+- **Coordinate Transformation**: Transform ARKit objects to SceneFun3D coordinate space
+- **Official Integration**: Uses the official SceneFun3D DataParser toolkit
+- **Floating Affordances**: Supports unattached affordances when spatial confidence is low
+- **Rich Visualizations**: Generates comprehensive plots showing transformations and relationships
+- **Simple Configuration**: Works with any data root path
 
-### 🏷️ **v1.0** - Baseline Implementation *(September 25, 2025)*
-- ✅ Initial pipeline with custom parsers
-- ✅ Scene graph generation (4-level hierarchy)
-- ✅ Coordinate transformation utilities
-- ✅ Visualization system
-- ❌ **Known Issues**: Object-affordance linking problems, fallback to uncertain connections
+## Installation
 
-### 🚧 **v2.0** - Enhanced Pipeline *(In Progress)*
-- ✅ **Git repository**: https://github.com/JiachenTu/SGG_SceneFun3D.git
-- ✅ **SceneFun3D DataParser integration**: Official toolkit compatibility verified
-- ✅ **Coordinate system inversion**: Transform ARKit objects → SceneFun3D space
-- 🔄 **Enhanced spatial analysis**: Mesh-based geometry + strict confidence thresholds
-- 🔄 **Floating affordances**: Remove fallback logic, allow unattached affordances
-- ⏳ **Scene graph v2**: Support floating affordance nodes
-- ⏳ **Enhanced visualizations**: Show confident vs uncertain relationships
+### Dependencies
 
----
-
-## Example Data: Bathroom Scene
-
-### Overview
-- **Visit ID**: 422203 (SceneFun3D)
-- **Video ID**: 42445781 (ARKitScenes)
-- **Scene Type**: Bathroom with toilet, sink, bathtub
-- **Task Descriptions**: 6 functional tasks
-
-### Data Location
-
-```
-data_examples/
-├── arkitscenes/
-│   └── video_42445781/
-│       ├── 42445781_3dod_annotation.json    # 3D object bounding boxes
-│       ├── 42445781_3dod_mesh.ply          # ARKit mesh
-│       └── 42445781_frames/                # RGB, depth, poses
-└── scenefun3d/
-    └── visit_422203/
-        ├── 422203_annotations.json         # Affordance point indices
-        ├── 422203_descriptions.json        # Task descriptions
-        ├── 422203_motions.json            # Motion parameters
-        ├── 422203_laser_scan.ply          # High-res laser scan
-        └── 42445781/                       # Video-specific data
-            ├── 42445781_transform.npy      # Coordinate transformation
-            ├── 42445781_arkit_mesh.ply     # ARKit mesh
-            ├── lowres_wide/                # RGB frames
-            ├── lowres_depth/               # Depth maps
-            └── lowres_poses.traj           # Camera poses
+```bash
+pip install numpy matplotlib open3d
 ```
 
-## ARKitScenes Data Analysis
+### SceneFun3D Toolkit
 
-### 3D Objects Detected
-From `42445781_3dod_annotation.json`:
+The pipeline requires the official SceneFun3D toolkit. Make sure it's installed at:
+```
+/home/jiachen/scratch/SceneFun3D/scenefun3d
+```
 
-1. **Bathtub**
-   - Center: [57.75, 241.14, 154.95] mm
-   - Size: [164.39, 60.64, 73.11] mm
-   - Real dimensions: ~164cm × 61cm × 73cm
+## Quick Start
 
-2. **Sink**
-   - Center: [81.51, 280.84, 67.49] mm
-   - Size: [56.94, 23.10, 43.70] mm
-   - Real dimensions: ~57cm × 23cm × 44cm
+### 1. Run the Pipeline
 
-3. **Toilet**
-   - Center: [29.01, 249.20, -9.67] mm
-   - Size: [41.99, 79.52, 67.17] mm
-   - Real dimensions: ~42cm × 80cm × 67cm
+```bash
+python pipeline.py
+```
 
-### Coordinate System
-- Units: millimeters
-- Origin: ARKitScenes coordinate system
-- Rotation: Oriented bounding boxes with rotation matrices
+This will:
+- Load SceneFun3D laser scan data and annotations
+- Parse ARKitScenes 3D object detections
+- Transform objects to SceneFun3D coordinates
+- Generate scene graph with spatial relationships
+- Save results to `results/pipeline_results.json`
 
-## SceneFun3D Data Analysis
+### 2. Generate Visualizations
 
-### Task Descriptions (6 tasks)
-From `422203_descriptions.json`:
+```bash
+python create_visualizations.py
+```
 
-1. **"Close the bathroom door"**
-   - Annotation IDs: 0682ad6f, e93e1b5c
-   - Motion: Rotation around Z-axis
+This creates 4 visualization files in the `visualizations/` directory:
+- `coordinate_comparison.png` - Before/after coordinate transformation
+- `3d_scene_visualization.png` - 3D scene with objects and affordances
+- `scene_graph_structure.png` - Hierarchical graph diagram
+- `transformation_validation.png` - Accuracy validation plots
 
-2. **"Flush the toilet"**
-   - Annotation ID: bfc23a3d
-   - Motion: Translation (push down)
-   - Direction: [0, 0, -1]
+## Configuration
 
-3. **"Open the window above the sink"**
-   - Annotation ID: 2777270f
-   - Motion: Rotation
-   - Direction: [0.999, -0.006, -0.014]
-
-4. **"Open the window above the toilet"**
-   - Annotation ID: 3e9e30c0
-   - Motion: Rotation
-   - Direction: [0.999, -0.006, -0.014]
-
-5. **"Turn on the tap in the sink"**
-   - Annotation ID: 90efb7a6
-   - Motion: Rotation around Z-axis
-   - Direction: [0, 0, -1]
-
-6. **"Unplug the make up mirror"**
-   - Annotation ID: 5866dc36
-   - Motion: Translation (pull out)
-   - Direction: [0.999, 0.038, 0.009]
-
-### Affordance Types
-- **Rotational**: Door handles, taps, windows
-- **Translational**: Flush button, mirror plug
-
-### Coordinate System
-- Point indices into laser scan
-- Transform matrix: `42445781_transform.npy`
-- Motion origins specified by point indices
-
-## Data Integration Challenges
-
-### 1. Coordinate System Alignment
-- **ARKitScenes**: 3D coordinates in millimeters
-- **SceneFun3D**: Point indices into laser scan
-- **Solution**: Use `42445781_transform.npy` to align coordinate systems
-
-### 2. Scale and Units
-- **ARKitScenes**: Metric measurements (mm)
-- **SceneFun3D**: Point cloud indices
-- **Solution**: Convert indices to 3D coordinates using laser scan
-
-### 3. Object-Affordance Mapping
-- **Challenge**: Link affordance regions to 3D objects
-- **Approach**: Spatial overlap analysis between point regions and bounding boxes
-
-### 4. Motion Parameter Translation
-- **Challenge**: Convert point indices to 3D motion parameters
-- **Approach**: Lookup 3D coordinates and compute motion vectors
-
-## Analysis Scripts
-
-### Planned Development
-
-1. **`scripts/data_explorer.py`**
-   - Parse both datasets
-   - Visualize 3D objects and affordance regions
-   - Apply coordinate transformations
-
-2. **`scripts/scene_graph_builder.py`**
-   - Build integrated scene graphs
-   - One graph per task description
-   - Combine objects and affordances
-
-3. **`scripts/alignment_validator.py`**
-   - Validate coordinate alignment
-   - Check spatial relationships
-   - Generate alignment metrics
-
-4. **`utils/` modules**
-   - ARKitScenes parser
-   - SceneFun3D parser
-   - Coordinate transformation utilities
-
-## Expected Output
-
-### Scene Graph Example: "Flush the toilet"
+The pipeline uses example data by default. To use your own data, edit the paths in `pipeline.py`:
 
 ```python
-{
-    "visit_id": "422203",
-    "video_id": "42445781",
-    "description": "Flush the toilet",
-    "object_nodes": [
-        {
-            "ID": "toilet_01",
-            "semantic_class": "toilet",
-            "3d_center": [29.01, 249.20, -9.67],
-            "3d_bbox": {
-                "size": [41.99, 79.52, 67.17],
-                "rotation": [...]
-            }
-        }
-    ],
-    "affordance_nodes": [
-        {
-            "ID": "flush_button_01",
-            "affordance_type": "Push",
-            "motion_type": "trans",
-            "motion_direction": [0, 0, -1],
-            "attach_to": "toilet_01"
-        }
-    ]
-}
+# Configuration
+data_root = "/path/to/your/scenefun3d/data"
+arkitscenes_file = "/path/to/your/arkitscenes/annotation.json"
+visit_id = "your_visit_id"
+video_id = "your_video_id"
 ```
 
-## Implementation
+Or create a `config.yaml` file:
 
-### Utilities (`utils/`)
-
-1. **`arkitscenes_parser.py`** - Parse ARKitScenes 3DOD annotations
-   - Extract 3D bounding boxes, semantic classes, rotation matrices
-   - Compute object volumes and spatial properties
-
-2. **`scenefun3d_parser.py`** - Parse SceneFun3D data
-   - Load task descriptions, affordance annotations, motion parameters
-   - Infer affordance types from natural language
-
-3. **`coordinate_transform.py`** - Handle coordinate system alignment
-   - Apply transformation matrices between coordinate systems
-   - Convert point indices to 3D coordinates
-
-4. **`point_cloud_utils.py`** - Process laser scan point clouds
-   - Load PLY files, extract point subsets, compute statistics
-   - Handle large-scale point cloud operations
-
-### Analysis Scripts (`scripts/`)
-
-1. **`spatial_analyzer.py`** - Analyze object-affordance spatial relationships
-   - Compute overlap ratios and distances
-   - Find parent objects for affordances
-   - Generate confidence scores
-
-2. **`hierarchical_graph_builder.py`** - Build hierarchical 3D scene graphs
-   - 4-level hierarchy: Scene → Region → Object → Affordance
-   - One graph per task description
-   - Include motion parameters and spatial reasoning
-
-3. **`comprehensive_analysis.py`** - Complete analysis pipeline
-   - Demonstrates full workflow from data loading to scene graph generation
-   - Exports results to JSON files
-
-## Pipeline Usage
-
-### Quick Start
-```bash
-cd /home/jiachen/scratch/SceneFun3D/alignment
-source /home/jiachen/miniconda3/etc/profile.d/conda.sh
-conda activate scenefun3d
-
-# Run setup (first time only)
-bash setup.sh
-
-# Run complete integrated pipeline
-python run_pipeline.py --validate --verbose
-
-# Validate outputs separately
-python validate_outputs.py --verbose
-```
-
-### Pipeline Commands
-
-#### 1. Integrated Pipeline Execution
-```bash
-# Basic execution
-python run_pipeline.py
-
-# With validation and verbose output (recommended)
-python run_pipeline.py --validate --verbose
-
-# Custom output directory
-python run_pipeline.py --output-dir custom_outputs --validate
-```
-
-#### 2. Individual Component Testing
-```bash
-# Test individual parsers
-python utils/arkitscenes_parser.py
-python utils/scenefun3d_parser.py
-
-# Test spatial analysis
-python scripts/spatial_analyzer.py
-
-# Test scene graph building
-python scripts/hierarchical_graph_builder.py
-```
-
-#### 3. Output Validation
-```bash
-# Validate pipeline outputs
-python validate_outputs.py
-
-# Validate custom output directory
-python validate_outputs.py --output-dir custom_outputs --verbose
-```
-
-#### 4. Scene Graph Visualization
-```bash
-# Visualize single scene graph
-python scripts/scene_graph_visualizer.py --input outputs/scene_graphs/bathroom_422203_task_2_flush_the_toilet.json
-
-# Generate all individual visualizations
-python scripts/scene_graph_visualizer.py --input-dir outputs/scene_graphs/ --format svg
-
-# Create batch comparison
-python scripts/scene_graph_visualizer.py --input-dir outputs/scene_graphs/ --batch
+```yaml
+data:
+  scenefun3d_root: "/path/to/scenefun3d/data"
+  arkitscenes_file: "/path/to/arkitscenes/annotation.json"
+  visit_id: "422203"
+  video_id: "42445781"
 ```
 
 ## Pipeline Components
 
-### Core Utilities (`utils/`)
+### Core Modules
 
-#### ARKitScenes Parser (`arkitscenes_parser.py`)
-- **Purpose**: Parse ARKitScenes 3D object detection annotations
-- **Input**: `42445781_3dod_annotation.json`
-- **Output**: `ARKitObject` instances with oriented bounding boxes, labels, and poses
-- **Key Features**:
-  - Oriented bounding box parsing with rotation matrices
-  - Volume computation and spatial properties
-  - Support for all ARKitScenes object classes
+- `pipeline.py` - Main pipeline orchestration
+- `utils/arkitscenes_parser.py` - ARKit data parsing
+- `utils/unified_data_loader.py` - SceneFun3D data loading
+- `utils/enhanced_coordinate_transform.py` - Coordinate transformations
+- `utils/spatial_scorer.py` - Spatial confidence scoring
+- `create_visualizations.py` - Visualization generation
 
-#### SceneFun3D Parser (`scenefun3d_parser.py`)
-- **Purpose**: Parse SceneFun3D affordance annotations and task descriptions
-- **Input**: Visit directory with annotations, descriptions, and motions JSON files
-- **Output**: `TaskDescription` and `Annotation` instances with motion parameters
-- **Key Features**:
-  - Natural language task description parsing
-  - Point cloud index extraction for affordance regions
-  - Motion parameter extraction (type, direction, origin)
-  - Automatic affordance type inference from descriptions
+### Data Structure
 
-#### Coordinate Transformer (`coordinate_transform.py`)
-- **Purpose**: Transform coordinates between SceneFun3D and ARKitScenes coordinate systems
-- **Input**: `42445781_transform.npy` transformation matrix
-- **Output**: Aligned 3D coordinates
-- **Key Features**:
-  - 4x4 homogeneous transformation matrix application
-  - Batch point transformation for efficiency
-  - Rotation angle extraction and validation
-
-#### Point Cloud Processor (`point_cloud_utils.py`)
-- **Purpose**: Process laser scan point clouds and extract affordance regions
-- **Input**: `422203_laser_scan.ply` with 2.3M+ points
-- **Output**: Point subsets for annotations and spatial statistics
-- **Key Features**:
-  - Efficient PLY file loading with Open3D
-  - Point subset extraction by indices
-  - Bounding box computation for point regions
-
-### Analysis Scripts (`scripts/`)
-
-#### Spatial Analyzer (`spatial_analyzer.py`)
-- **Purpose**: Analyze spatial relationships between objects and affordances
-- **Process**:
-  1. Transform affordance points to ARKitScenes coordinates
-  2. Compute overlap ratios with object bounding boxes
-  3. Calculate confidence scores based on spatial proximity
-- **Output**: `SpatialRelationship` instances with confidence metrics
-- **Key Metrics**:
-  - Overlap ratio: Percentage of affordance points inside object bbox
-  - Distance: Euclidean distance between centers
-  - Confidence: Combined score (overlap + proximity)
-
-#### Hierarchical Graph Builder (`hierarchical_graph_builder.py`)
-- **Purpose**: Build 4-level hierarchical scene graphs combining objects and affordances
-- **Architecture**:
-  - **Level 0**: Scene root (entire bathroom scene)
-  - **Level 1**: Spatial regions (toilet_area, sink_area, bathtub_area)
-  - **Level 2**: Objects (toilet, sink, bathtub from ARKitScenes)
-  - **Level 3**: Affordances (flush, turn_tap, etc. from SceneFun3D)
-- **Output**: `TaskSceneGraph` instances with spatial reasoning chains
-- **Key Features**:
-  - Automatic region assignment based on object proximity
-  - Parent-child relationship establishment
-  - Target affordance identification for each task
-  - Spatial reasoning chain generation
-
-#### Scene Graph Visualizer (`scene_graph_visualizer.py`)
-- **Purpose**: Generate clear, hierarchical visualizations of scene graphs
-- **Features**:
-  - Color-coded nodes by type (scene/region/object/affordance)
-  - Detailed multi-line labels with key attributes
-  - Hierarchical tree layout with parent-child relationships
-  - Multiple output formats (PNG, SVG, PDF)
-- **Modes**:
-  - Single graph visualization with detailed labeling
-  - Batch comparison with grid layout
-  - High-quality outputs for publications
-- **Key Benefits**:
-  - Intuitive visual understanding of scene structure
-  - Easy comparison between different task graphs
-  - Professional-quality diagrams for presentations
-
-### Main Pipeline (`run_pipeline.py`)
-
-#### Integrated Execution Pipeline
-- **Purpose**: Orchestrate complete scene graph generation workflow
-- **Process**:
-  1. **Data Loading**: Load and validate all input files
-  2. **Spatial Analysis**: Find object-affordance spatial relationships
-  3. **Scene Graph Generation**: Build hierarchical graphs for each task
-  4. **Output Generation**: Save JSON files and summary reports
-  5. **Validation**: Run quality checks on outputs
-- **Key Features**:
-  - Comprehensive error handling and logging
-  - Progress tracking with timestamps
-  - Automatic output directory management
-  - Built-in validation with detailed reporting
-
-### Validation System (`validate_outputs.py`)
-
-#### Output Quality Assurance
-- **Purpose**: Validate completeness and correctness of pipeline outputs
-- **Checks**:
-  - Directory structure validation
-  - Scene graph file completeness and format validation
-  - Spatial analysis output verification
-  - Data consistency between inputs and outputs
-- **Output**: Detailed validation reports with success/failure metrics
-- **Key Features**:
-  - JSON schema validation for scene graphs
-  - Statistical analysis of generated data
-  - Confidence threshold verification
-  - Comprehensive error reporting
-
-### Output Structure
 ```
-outputs/
-├── scene_graphs/                   # Generated scene graphs
-│   ├── bathroom_422203_task_1_close_the_bathroom_door.json
-│   ├── bathroom_422203_task_2_flush_the_toilet.json
-│   ├── bathroom_422203_task_3_open_the_window_above_the_sink.json
-│   ├── bathroom_422203_task_4_open_the_window_above_the_toilet.json
-│   ├── bathroom_422203_task_5_turn_on_the_tap_in_the_sink.json
-│   └── bathroom_422203_task_6_unplug_the_make_up_mirror.json
-├── visualizations/                 # Scene graph visualizations
-│   ├── bathroom_422203_task_1_close_the_bathroom_door_graph.png
-│   ├── bathroom_422203_task_2_flush_the_toilet_graph.png
-│   ├── bathroom_422203_task_3_open_the_window_above_the_sink_graph.png
-│   ├── bathroom_422203_task_4_open_the_window_above_the_toilet_graph.png
-│   ├── bathroom_422203_task_5_turn_on_the_tap_in_the_sink_graph.png
-│   ├── bathroom_422203_task_6_unplug_the_make_up_mirror_graph.png
-│   └── scene_graphs_comparison.png
-├── spatial_analysis/               # Spatial relationship data
-│   └── spatial_relationships.json
-├── validation/                     # Validation reports
-│   └── validation_report_YYYYMMDD_HHMMSS.json
-├── logs/                          # Execution logs
-│   └── pipeline_execution_YYYYMMDD_HHMMSS.log
-└── pipeline_summary.json          # Overall statistics
+alignment/
+├── README.md                    # This file
+├── pipeline.py                  # Main pipeline
+├── create_visualizations.py     # Visualization tool
+├── config.yaml                  # Configuration template
+├── utils/                       # Core utilities
+├── data_examples/               # Example data
+│   ├── arkitscenes/
+│   └── scenefun3d/
+├── results/                     # Pipeline outputs
+│   └── pipeline_results.json
+├── visualizations/              # Generated plots
+└── archive/                     # Archived old files
 ```
 
-### Pipeline Features
+## Output Format
 
-#### 🔄 Integrated Execution
-- Single-command pipeline execution with built-in visualization
-- Automatic dependency checking
-- Comprehensive error handling
-- Progress reporting with timestamps
+The pipeline generates a JSON scene graph with this structure (all units in meters):
 
-#### ✅ Built-in Validation
-- Input file validation
-- Output completeness checking
-- Data consistency verification
-- Quality metrics computation
-
-#### 📊 Comprehensive Outputs
-- Individual scene graphs per task
-- Hierarchical visualizations with color-coded nodes
-- Spatial relationship analysis
-- Execution logs and summaries
-- Validation reports
-
-#### 🛠️ Robust Error Handling
-- Graceful failure handling
-- Clear error messages
-- Partial execution with warnings
-- Recovery mechanisms
-
-### Scene Graph Structure
-```python
+```json
 {
-  "task_description": "Flush the toilet",
-  "nodes": {
-    "scene_root": {...},
-    "toilet_area": {...},
-    "toilet_object": {
-      "semantic_class": "toilet",
-      "bbox_center": [29.01, 249.20, -9.67],
-      "bbox_size": [41.99, 79.52, 67.17]
-    },
-    "flush_affordance": {
-      "affordance_type": "Push",
-      "motion_type": "trans",
-      "motion_direction": [0, 0, -1],
-      "confidence": 0.85
+  "visit_id": "422203",
+  "video_id": "42445781",
+  "objects": [
+    {
+      "id": "MhdKxnWEXdHg9Nle",
+      "class": "bathtub",
+      "center_arkit_m": [0.058, 0.241, 0.155],
+      "center_scenefun3d": [-0.044, -0.434, 92.551],
+      "size_m": [0.164, 0.061, 0.073]
     }
-  },
-  "target_affordances": ["flush_affordance"],
-  "spatial_reasoning_chain": [
-    "Locate toilet in the scene",
-    "Identify push affordance on toilet",
-    "Execute translational motion"
+  ],
+  "affordances": [
+    {
+      "id": "0682ad6f-09b5-4257-be3d-9a615bc9283a",
+      "task_description": "Close the bathroom door",
+      "center": [-0.342, 0.039, 92.930],
+      "point_count": 186,
+      "size": [0.040, 0.050, 0.055],
+      "raw_size": [0.037, 0.048, 0.050],
+      "volume_m3": 0.00011,
+      "point_density_per_m3": 1690909,
+      "voxel_size_m": 0.005
+    }
+  ],
+  "relationships": [
+    {
+      "object_id": "MhdKxnWEXdHg9Nle",
+      "object_class": "bathtub",
+      "affordance_id": "0682ad6f-09b5-4257-be3d-9a615bc9283a",
+      "affordance_task": "Close the bathroom door",
+      "distance": 0.676,
+      "confidence": 0.324
+    }
   ]
 }
 ```
 
-## Scene Graph Visualization
+## Technical Details
 
-The pipeline includes a comprehensive visualization system that generates clear, hierarchical diagrams of scene graphs with detailed node labeling and color coding.
+### Unit Handling and Resolution
 
-### Visualization Features
+**Consistent Meter Units:**
+- ARKitScenes data converted from millimeters to meters at input parsing
+- All coordinates, sizes, and distances in meters throughout pipeline
+- Eliminates unit conversion errors and improves clarity
 
-- **Hierarchical Layout**: 4-level tree structure (Scene → Region → Object → Affordance)
-- **Color-Coded Nodes**: Different colors for each node type
-  - 🔵 **Scene Root**: Deep blue - entire scene overview
-  - 🟢 **Spatial Regions**: Green - toilet_area, sink_area, bathtub_area
-  - 🟠 **Objects**: Orange - toilet, sink, bathtub with properties
-  - 🔴 **Affordances**: Red - interactive elements with motion parameters
-- **Detailed Labels**: Multi-line labels showing key attributes for each node
-- **Multiple Formats**: PNG, SVG, PDF output for publications and presentations
+**5mm Voxel Resolution Handling:**
+SceneFun3D laser scans are pre-processed with 5mm voxel downsampling:
+- Combined from multiple Faro Focus S70 scanner positions
+- Downsampled to 5mm resolution preserving functional details
+- Pipeline accounts for this resolution limit in affordance size calculations
 
-### Usage Commands
+```python
+VOXEL_SIZE = 0.005  # 5mm in meters
 
-#### Single Scene Graph Visualization
-```bash
-# Visualize specific task
-python scripts/scene_graph_visualizer.py --input outputs/scene_graphs/bathroom_422203_task_2_flush_the_toilet.json
+# Quantize affordance sizes to voxel grid
+size_quantized = np.ceil(raw_size / VOXEL_SIZE) * VOXEL_SIZE
 
-# Custom output directory and format
-python scripts/scene_graph_visualizer.py --input outputs/scene_graphs/bathroom_422203_task_2_flush_the_toilet.json --output-dir my_visualizations --format svg
+# Enforce minimum size (one voxel)
+min_size = np.array([VOXEL_SIZE, VOXEL_SIZE, VOXEL_SIZE])
+size_corrected = np.maximum(size_quantized, min_size)
 ```
 
-#### Batch Visualization
-```bash
-# Generate individual visualizations for all scene graphs
-python scripts/scene_graph_visualizer.py --input-dir outputs/scene_graphs/ --output-dir visualizations/
+### Coordinate Transformation
 
-# Create comparison grid of all scene graphs
-python scripts/scene_graph_visualizer.py --input-dir outputs/scene_graphs/ --batch --output-dir visualizations/
+The pipeline transforms ARKitScenes objects (already converted to meters) to SceneFun3D coordinate space:
 
-# Verbose output with processing details
-python scripts/scene_graph_visualizer.py --input-dir outputs/scene_graphs/ --batch --verbose
+```python
+# Load transformation matrix
+transform_matrix = parser.get_transform(visit_id, video_id)
+inverse_transform = np.linalg.inv(transform_matrix)
+
+# Transform ARKit point to SceneFun3D (both in meters)
+homogeneous_point = np.append(arkit_center_m, 1)
+scenefun3d_center = (inverse_transform @ homogeneous_point)[:3]
 ```
 
-### Output Files
+### Spatial Confidence Calculation
 
-**Individual Visualizations:**
-```
-outputs/visualizations/
-├── bathroom_422203_task_1_close_the_bathroom_door_graph.png
-├── bathroom_422203_task_2_flush_the_toilet_graph.png
-├── bathroom_422203_task_3_open_the_window_above_the_sink_graph.png
-├── bathroom_422203_task_4_open_the_window_above_the_toilet_graph.png
-├── bathroom_422203_task_5_turn_on_the_tap_in_the_sink_graph.png
-└── bathroom_422203_task_6_unplug_the_make_up_mirror_graph.png
+Confidence scores combine **overlap ratio** and **distance scoring** with **voxel resolution awareness**:
+
+#### Formula:
+```python
+final_confidence = overlap_weight × overlap_ratio + distance_weight × distance_score
 ```
 
-**Batch Comparison:**
-```
-outputs/visualizations/
-└── scene_graphs_comparison.png
-```
+#### Components:
 
-**Automatic Generation:** Visualizations are automatically generated during pipeline execution and saved alongside scene graphs in the `outputs/` directory structure.
-
-### Node Label Content
-
-Each node type displays specific information:
-
-**Scene Root Nodes:**
-- Scene description (e.g., "Bathroom scene")
-- Visit ID and Video ID
-- Spatial bounds summary
-
-**Spatial Region Nodes:**
-- Region name (toilet_area, sink_area, bathtub_area)
-- Primary objects in the region
-- Region size information
-
-**Object Nodes:**
-- Semantic class (toilet, sink, bathtub)
-- Volume in mm³
-- Occlusion and orientation attributes
-
-**Affordance Nodes:**
-- Affordance type (Push, Rotate, Pull, Interact)
-- Motion type and direction
-- Confidence score (0.0-1.0)
-- Point count from annotation
-
-### Visualization Options
-
-#### Command Line Arguments
-- `--input`: Single JSON file path
-- `--input-dir`: Directory containing multiple JSON files
-- `--output-dir`: Output directory (default: visualizations)
-- `--format`: Output format - png, svg, pdf (default: png)
-- `--batch`: Create grid comparison of multiple graphs
-- `--verbose`: Enable detailed logging
-
-#### Example Use Cases
-```bash
-# Research publication - high-quality SVG
-python scripts/scene_graph_visualizer.py --input-dir outputs/scene_graphs/ --format svg
-
-# Quick preview - batch comparison
-python scripts/scene_graph_visualizer.py --input-dir outputs/scene_graphs/ --batch
-
-# Presentation slides - individual PDF graphs
-python scripts/scene_graph_visualizer.py --input-dir outputs/scene_graphs/ --format pdf
+1. **Distance Score (40% weight):**
+```python
+# Account for 5mm voxel spatial uncertainty
+spatial_uncertainty = √3 × (voxel_size / 2) ≈ 4.3mm
+adjusted_distance = max(0, raw_distance - spatial_uncertainty)
+normalized_distance = min(adjusted_distance / max_distance, 1.0)
+distance_score = 1.0 - normalized_distance
 ```
 
-## Key Insights
+2. **Overlap Ratio (60% weight):**
+```python
+# Calculate bounding box intersection
+intersection_volume = calculate_bbox_intersection(object_bbox, affordance_bbox)
+smaller_volume = min(object_volume, affordance_volume)
+overlap_ratio = intersection_volume / smaller_volume
+```
 
-1. **Perfect Data Alignment**: All SceneFun3D videos exist in ARKitScenes
-2. **Coordinate Transformation**: `transform.npy` enables precise alignment
-3. **Hierarchical Organization**: 4-level scene graphs support multi-scale reasoning
-4. **Motion Integration**: Combines geometric constraints with functional parameters
-5. **Confidence Scoring**: Validates object-affordance spatial relationships
-6. **Visual Analysis**: Clear hierarchical visualizations enable intuitive scene understanding
+#### Key Parameters:
+- **max_distance**: 0.5m (reasonable interaction range)
+- **confidence_threshold**: 0.2 (lowered due to voxel sampling uncertainty)
+- **spatial_uncertainty**: ±4.3mm (from 5mm voxel sampling)
+- **voxel_size**: 0.005m (5mm laser scan resolution)
+
+#### Confidence Interpretation:
+- **> 0.7**: High confidence relationship
+- **0.2-0.7**: Moderate confidence (above threshold)
+- **< 0.2**: Low confidence → "floating" affordance
+- **< 0.1**: Very low confidence → likely unrelated
+
+#### No Fallback Logic:
+Affordances remain "floating" (unattached) if no object relationship exceeds the confidence threshold. This prevents false associations and maintains data integrity.
+
+### Example Results
+
+**Bathroom Scene (visit_422203, video_42445781):**
+- Objects: bathtub, sink, toilet (all coordinates in meters)
+- Affordances: 3 regions with 186, 39, and 84 points (5mm voxel-corrected)
+- Coordinate Transformations (ARKit → SceneFun3D):
+  - Bathtub: [0.058, 0.241, 0.155]m → [-0.044, -0.434, 92.551]m
+  - Sink: [0.082, 0.281, 0.067]m → [-0.005, -0.409, 92.464]m
+  - Toilet: [0.029, 0.249, -0.010]m → [-0.066, -0.413, 92.386]m
+- Affordance Sizes (voxel-corrected):
+  - Door handle: raw [0.037, 0.048, 0.050]m → corrected [0.040, 0.050, 0.055]m
+  - Point densities: 1.69M-3.36M points/m³ (realistic for 5mm voxels)
+- Spatial Relationships:
+  - Best confidence: 0.324 (bathtub ↔ door handle, 0.68m distance)
+  - All affordances remain "floating" (below 0.2 threshold) - realistic for door handles
 
 ## Troubleshooting
 
-### Common Issues
+**Import Error**: Make sure SceneFun3D toolkit is installed at the correct path
+**File Not Found**: Check that example data exists in `data_examples/` directory
+**Visualization Error**: Install matplotlib and ensure results file exists
+**Unit Errors**: All coordinates should be in meters - check ARKitScenes parser output
+**Low Confidence**: Confidence < 0.2 is normal for distant relationships; check voxel resolution settings
 
-#### 1. Import Errors
-```bash
-ModuleNotFoundError: No module named 'numpy'
-```
-**Solution**: Activate the conda environment
-```bash
-source /home/jiachen/miniconda3/etc/profile.d/conda.sh
-conda activate scenefun3d
-```
-
-#### 2. Missing Data Files
-```bash
-ERROR: Missing required files: [...]
-```
-**Solution**: Verify data files are copied correctly
-```bash
-ls -la data_examples/arkitscenes/video_42445781/
-ls -la data_examples/scenefun3d/visit_422203/
-```
-
-#### 3. Pipeline Execution Fails
-```bash
-ERROR: Error loading data: [...]
-```
-**Solution**: Check file permissions and paths
-```bash
-# Make scripts executable
-chmod +x run_pipeline.py validate_outputs.py
-
-# Verify you're in the correct directory
-pwd
-# Should show: /home/jiachen/scratch/SceneFun3D/alignment
-```
-
-#### 4. Open3D Issues
-```bash
-ImportError: cannot import name 'geometry' from 'open3d'
-```
-**Solution**: Check Open3D installation
-```bash
-conda activate scenefun3d
-python -c "import open3d as o3d; print(o3d.__version__)"
-```
-
-### Performance Notes
-
-- **Point Cloud Loading**: ~2-5 seconds for 2.2M points
-- **Spatial Analysis**: ~10-30 seconds for 6 tasks
-- **Scene Graph Generation**: ~5-15 seconds per task
-- **Total Pipeline**: ~1-3 minutes for complete analysis
-
-### Expected Results Validation
-
-#### Successful Pipeline Output:
-```
-[INFO] All required input files found
-[INFO] Loaded 3 ARKitScenes objects: ['bathtub', 'sink', 'toilet']
-[INFO] Loaded 6 SceneFun3D tasks
-[INFO] Found 6 spatial relationships
-[INFO] Successfully built 6 scene graphs
-[INFO] PIPELINE COMPLETED SUCCESSFULLY
-```
-
-#### Key Metrics:
-- **Objects detected**: 3 (bathtub, sink, toilet)
-- **Tasks processed**: 6
-- **Spatial relationships**: 6
-- **Scene graphs generated**: 6
-- **High confidence relationships**: 4-6
-
-## 🚀 v2.0 Enhanced Pipeline Architecture
-
-### 🔄 **Key Strategic Changes**
-
-#### 1. **Coordinate System Inversion**
-- **v1.0 Approach**: Transform SceneFun3D affordance points → ARKitScenes coordinates
-- **v2.0 Approach**: Transform ARKitScenes objects → SceneFun3D coordinates
-- **Benefit**: Keep affordances in native high-resolution laser scan space
-
-```python
-# v1.0: affordance_points_arkit = transform(affordance_points_scenefun3d)
-# v2.0: object_bbox_scenefun3d = inverse_transform(object_bbox_arkit)
-
-transformer = EnhancedCoordinateTransformer(data_root, "422203", "42445781")
-arkit_center = np.array([29.01, 249.20, -9.67])  # ARKit toilet center
-scenefun3d_center = transformer.transform_arkit_to_scenefun3d(arkit_center)
-# Result: [140.58, 207.08, 83.57] in SceneFun3D coordinates
-```
-
-#### 2. **Official SceneFun3D Toolkit Integration**
-- **v1.0**: Custom parsers with potential compatibility issues
-- **v2.0**: Official `DataParser` from SceneFun3D toolkit
-- **Verified Compatibility**:
-  - ✅ Laser scan: 2.35M points (perfect match)
-  - ✅ ARKit reconstruction: 361K vertices, 642K faces
-  - ✅ Transform matrix: Perfect round-trip accuracy
-  - ✅ Annotations: 8 annotations loaded
-  - ✅ Task descriptions: 6 tasks loaded correctly
-
-```python
-from utils.data_parser import DataParser
-parser = DataParser(data_root)
-laser_scan = parser.get_laser_scan("422203")           # 2.35M points
-arkit_mesh = parser.get_arkit_reconstruction("422203", "42445781")  # Official mesh
-```
-
-#### 3. **Enhanced Spatial Analysis**
-- **v1.0 Issues**: 0% overlap ratios, all affordances → toilet fallback
-- **v2.0 Approach**: Multi-criteria confidence scoring
-  - **Geometric Overlap** (40%): Bounding box intersection in SceneFun3D space
-  - **Mesh Proximity** (30%): Distance to actual ARKit mesh surface
-  - **Semantic Plausibility** (30%): Object-task compatibility filtering
-
-```python
-confidence = (overlap_ratio * 0.4 +
-             mesh_proximity * 0.3 +
-             semantic_plausibility * 0.3)
-
-# Only accept matches above confidence threshold (default: 0.3)
-if confidence >= 0.3:
-    create_object_affordance_link()
-else:
-    allow_floating_affordance()  # NO FALLBACK
-```
-
-#### 4. **Elimination of Uncertain Connections**
-- **v1.0 Problem**: Fallback logic created false connections
-  - Example: "Turn on tap" → toilet (wrong!)
-- **v2.0 Solution**: Strict confidence thresholds, floating affordances
-  - No confident match = affordance remains unattached
-  - Honest uncertainty representation
-
-### 🧪 **Testing & Validation**
-
-#### **SceneFun3D DataParser Compatibility Test** ✅
-```bash
-cd /home/jiachen/scratch/SceneFun3D/alignment
-python test_scenefun3d_parser.py
-```
-**Results**:
-- ✅ All core functions working perfectly
-- ✅ Data loading matches custom parsers
-- ✅ Transform matrix verification passed
-
-#### **Coordinate Inversion Test** ✅
-```bash
-python utils/enhanced_coordinate_transform.py
-```
-**Results**:
-- ✅ Perfect round-trip accuracy (0.000000 error)
-- ✅ ARKit toilet: [29.01, 249.20, -9.67] → SceneFun3D: [140.58, 207.08, 83.57]
-- ✅ Bounding box transformation working
-
-### 📁 **v2.0 File Structure**
-
-```
-alignment/
-├── README.md                           # ← Enhanced documentation
-├── test_scenefun3d_parser.py          # ← DataParser compatibility test
-├── utils/
-│   └── enhanced_coordinate_transform.py # ← Coordinate system inversion
-├── scripts/
-│   └── enhanced_spatial_analyzer.py    # ← Enhanced spatial analysis (WIP)
-└── [v1.0 files preserved]
-```
-
-### 🎯 **Next Development Steps**
-
-1. **Complete Enhanced Spatial Analysis** 🔄
-   - Fix import path issues
-   - Test mesh-based proximity scoring
-   - Validate floating affordance logic
-
-2. **Update Scene Graph Structure** ⏳
-   - Support unattached affordance nodes
-   - Maintain 4-level hierarchy with floating elements
-
-3. **Enhanced Visualizations** ⏳
-   - Color-code confident vs uncertain relationships
-   - Show floating affordances distinctly
-
-4. **Comprehensive Testing** ⏳
-   - Validate with bathroom scene data
-   - Compare v1.0 vs v2.0 results
-   - Performance benchmarking
-
----
-
-This framework enables robust 3D scene understanding that combines geometric precision with functional semantics, now with enhanced accuracy and honest uncertainty handling.
-
----
-**Created**: September 23, 2025
-**Enhanced**: September 25, 2025
-**Data**: Bathroom scene 422203/42445781
-**Status**: v1.0 Production-ready, v2.0 In Development
-**Repository**: https://github.com/JiachenTu/SGG_SceneFun3D.git
