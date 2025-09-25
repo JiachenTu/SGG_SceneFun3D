@@ -48,11 +48,15 @@ This will:
 python create_visualizations.py
 ```
 
-This creates 4 visualization files in the `visualizations/` directory:
+This creates comprehensive visualizations in the `visualizations/` directory:
 - `coordinate_comparison.png` - Before/after coordinate transformation
-- `3d_scene_visualization.png` - 3D scene with objects and affordances
+- `3d_scene_visualization.png` - 3D scene with oriented bounding boxes and coordinate axes
+- `point_cloud_with_bboxes.png` - Point cloud overlay with object orientations
 - `scene_graph_structure.png` - Hierarchical graph diagram
 - `transformation_validation.png` - Accuracy validation plots
+- `individual/` - Individual object/affordance visualizations
+- `side_by_side/` - Context + zoom view comparisons
+- `labeled_point_clouds/` - PLY files with semantic labels
 
 ## Configuration
 
@@ -182,19 +186,62 @@ min_size = np.array([VOXEL_SIZE, VOXEL_SIZE, VOXEL_SIZE])
 size_corrected = np.maximum(size_quantized, min_size)
 ```
 
-### Coordinate Transformation
+### Coordinate Alignment System
 
-The pipeline transforms ARKitScenes objects (already converted to meters) to SceneFun3D coordinate space:
+The pipeline aligns ARKitScenes 3D object annotations with SceneFun3D coordinate system through a complete 6DOF transformation.
+
+#### Transformation Matrix
+SceneFun3D provides a 4×4 transformation matrix that converts coordinates from SceneFun3D → ARKitScenes:
+```python
+# Load transformation matrix (SceneFun3D → ARKit)
+transform_matrix = parser.get_transform(visit_id, video_id)  # 4×4 matrix
+inverse_transform = np.linalg.inv(transform_matrix)  # ARKit → SceneFun3D
+
+# Matrix properties:
+# - Rotation: ~27° around Z-axis + small tilts
+# - Translation: [-0.059, 0.326, -92.397] meters
+# - Large Z-offset accounts for elevation difference
+```
+
+#### Complete Object Transformation
+Objects require both **position** and **orientation** transformation:
 
 ```python
-# Load transformation matrix
-transform_matrix = parser.get_transform(visit_id, video_id)
-inverse_transform = np.linalg.inv(transform_matrix)
+# 1. Extract object data from ARKitScenes (use OBB, not OBB_Aligned)
+center_cm = obj['segments']['obb']['centroid']        # ARKit world coords (cm)
+size_cm = obj['segments']['obb']['axesLengths']       # Object dimensions (cm)
+axes = obj['segments']['obb']['normalizedAxes']       # 3×3 rotation matrix
 
-# Transform ARKit point to SceneFun3D (both in meters)
-homogeneous_point = np.append(arkit_center_m, 1)
-scenefun3d_center = (inverse_transform @ homogeneous_point)[:3]
+# 2. Convert units
+center_m = np.array(center_cm) / 100.0               # cm → meters
+size_m = np.array(size_cm) / 100.0                   # cm → meters
+axes_arkit = np.array(axes).reshape(3, 3)            # Already normalized
+
+# 3. Transform position
+center_sf3d = (inverse_transform @ np.append(center_m, 1))[:3]
+
+# 4. Transform orientation (CRITICAL!)
+axes_sf3d = inverse_transform[:3, :3] @ axes_arkit
+
+# Result: Complete 6DOF transformation
+scene_graph["objects"].append({
+    "center_arkit_m": center_m.tolist(),
+    "center_scenefun3d": center_sf3d.tolist(),
+    "axes_arkit": axes_arkit.tolist(),
+    "axes_scenefun3d": axes_sf3d.tolist(),
+    "size_m": size_m.tolist()
+})
 ```
+
+#### Why Rotation Transformation is Required
+
+**3D Vision Principle**: When coordinate systems are rotated relative to each other (~27° in this case), object orientations must be transformed to maintain spatial consistency:
+
+- **ARKit**: Object facing "North" direction in ARKit frame
+- **SceneFun3D**: Same object should still face "North" in SceneFun3D frame
+- **Without rotation transform**: Object would appear rotated 27° from correct orientation
+
+**Verification**: Both coordinate systems use world coordinates (Z-up), but with different origins and rotation. Object orientations are **extrinsic properties** that must be transformed with the coordinate frame.
 
 ### Spatial Confidence Calculation
 

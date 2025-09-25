@@ -146,16 +146,22 @@ def run_pipeline():
         for obj in objects:
             obj_center_m = obj.obb.centroid  # Already in meters
             obj_size_m = obj.obb.axes_lengths  # Already in meters
+            obj_axes = obj.obb.get_rotation_matrix()  # Get 3x3 rotation matrix
 
-            # Transform to SceneFun3D coordinates
+            # Transform center to SceneFun3D coordinates
             obj_center_scenefun3d = (inverse_transform @ np.append(obj_center_m, 1))[:3]
+
+            # Transform rotation axes to SceneFun3D coordinate frame
+            obj_axes_scenefun3d = inverse_transform[:3, :3] @ obj_axes
 
             scene_graph["objects"].append({
                 "id": obj.uid or f"object_{len(scene_graph['objects'])}",
                 "class": obj.label,
                 "center_arkit_m": obj_center_m.tolist(),
                 "center_scenefun3d": obj_center_scenefun3d.tolist(),
-                "size_m": obj_size_m.tolist()
+                "size_m": obj_size_m.tolist(),
+                "axes_arkit": obj_axes.tolist(),  # Original orientation in ARKit frame
+                "axes_scenefun3d": obj_axes_scenefun3d.tolist()  # Transformed orientation in SceneFun3D frame
             })
 
         # Add affordances with 5mm voxel resolution handling

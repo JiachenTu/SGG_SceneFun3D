@@ -105,20 +105,21 @@ def create_3d_scene_visualization(results, output_dir):
         ax.scatter(center[0], center[1], center[2],
                   c=colors[i], s=300, alpha=0.8, label=f"{obj['class']}")
 
-        # Plot bounding box (simplified as wireframe cube)
-        # Calculate box corners
-        half_size = np.array(size) / 2
-        corners = []
-        for dx in [-1, 1]:
-            for dy in [-1, 1]:
-                for dz in [-1, 1]:
-                    corner = np.array(center) + half_size * np.array([dx, dy, dz])
-                    corners.append(corner)
+        # Plot oriented bounding box using transformed rotation axes
+        axes_sf3d = np.array(obj.get('axes_scenefun3d', np.eye(3)))
 
-        corners = np.array(corners)
+        # Generate oriented bounding box corners
+        half_size = np.array(size) / 2
+        # Local corners in object space
+        local_corners = np.array([
+            [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+            [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]
+        ]) * half_size
+
+        # Transform to world space using rotation matrix
+        world_corners = (local_corners @ axes_sf3d.T) + np.array(center)
 
         # Draw wireframe box edges
-        # Define which corners connect to form edges
         edges = [
             (0, 1), (2, 3), (4, 5), (6, 7),  # x-parallel edges
             (0, 2), (1, 3), (4, 6), (5, 7),  # y-parallel edges
@@ -126,9 +127,18 @@ def create_3d_scene_visualization(results, output_dir):
         ]
 
         for edge in edges:
-            points = corners[[edge[0], edge[1]]]
+            points = world_corners[[edge[0], edge[1]]]
             ax.plot3D(points[:, 0], points[:, 1], points[:, 2],
-                     colors[i], alpha=0.3, linewidth=1)
+                     colors[i], alpha=0.6, linewidth=2)
+
+        # Draw object coordinate axes for orientation visualization
+        axis_length = np.mean(size) * 0.3  # Scale axes to object size
+        for axis_idx, (color_axis, label) in enumerate([('red', 'X'), ('green', 'Y'), ('blue', 'Z')]):
+            axis_vec = axes_sf3d[:, axis_idx] * axis_length
+            ax.plot3D([center[0], center[0] + axis_vec[0]],
+                     [center[1], center[1] + axis_vec[1]],
+                     [center[2], center[2] + axis_vec[2]],
+                     color=color_axis, linewidth=3, alpha=0.8)
 
     # Plot affordances
     affordances = results['affordances']
@@ -257,16 +267,18 @@ def create_point_cloud_visualization(results, output_dir, data_root="/home/jiach
             size = np.array(obj.get('size_m', obj.get('size', [1, 1, 1])))
             color = object_colors[i % len(object_colors)]
 
-            # Draw object bounding box
-            half_size = size / 2
-            corners = []
-            for dx in [-1, 1]:
-                for dy in [-1, 1]:
-                    for dz in [-1, 1]:
-                        corner = center + half_size * np.array([dx, dy, dz])
-                        corners.append(corner)
+            # Draw oriented bounding box using transformed axes
+            axes_sf3d = np.array(obj.get('axes_scenefun3d', np.eye(3)))
 
-            corners = np.array(corners)
+            # Generate oriented bounding box corners
+            half_size = size / 2
+            local_corners = np.array([
+                [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+                [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]
+            ]) * half_size
+
+            # Transform to world space using rotation matrix
+            world_corners = (local_corners @ axes_sf3d.T) + center
 
             # Draw wireframe box edges with thicker lines for visibility
             edges = [
@@ -276,9 +288,18 @@ def create_point_cloud_visualization(results, output_dir, data_root="/home/jiach
             ]
 
             for edge in edges:
-                points = corners[[edge[0], edge[1]]]
+                points = world_corners[[edge[0], edge[1]]]
                 ax.plot3D(points[:, 0], points[:, 1], points[:, 2],
                          color=color, alpha=0.9, linewidth=3)
+
+            # Draw object coordinate axes
+            axis_length = np.mean(size) * 0.4
+            for axis_idx, (color_axis, label) in enumerate([('red', 'X'), ('green', 'Y'), ('blue', 'Z')]):
+                axis_vec = axes_sf3d[:, axis_idx] * axis_length
+                ax.plot3D([center[0], center[0] + axis_vec[0]],
+                         [center[1], center[1] + axis_vec[1]],
+                         [center[2], center[2] + axis_vec[2]],
+                         color=color_axis, linewidth=4, alpha=0.9)
 
             # Add object label with background for better visibility
             ax.text(center[0], center[1], center[2] + size[2]/2 + 0.05,
@@ -477,16 +498,19 @@ def create_individual_visualizations(results, output_dir, data_root="/home/jiach
                 ax.scatter(roi_pts[:,0], roi_pts[:,1], roi_pts[:,2],
                           s=1.5, c=roi_pts[:,2], cmap='viridis', alpha=0.7)
 
-            # Draw object bounding box with thicker lines
-            half_size = size / 2
-            corners = []
-            for dx in [-1, 1]:
-                for dy in [-1, 1]:
-                    for dz in [-1, 1]:
-                        corner = center + half_size * np.array([dx, dy, dz])
-                        corners.append(corner)
+            # Draw oriented bounding box using transformed axes
+            axes_sf3d = np.array(obj.get('axes_scenefun3d', np.eye(3)))
 
-            corners = np.array(corners)
+            # Generate oriented bounding box corners
+            half_size = size / 2
+            local_corners = np.array([
+                [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+                [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]
+            ]) * half_size
+
+            # Transform to world space using rotation matrix
+            world_corners = (local_corners @ axes_sf3d.T) + center
+
             edges = [
                 (0, 1), (2, 3), (4, 5), (6, 7),  # x-parallel edges
                 (0, 2), (1, 3), (4, 6), (5, 7),  # y-parallel edges
@@ -494,9 +518,22 @@ def create_individual_visualizations(results, output_dir, data_root="/home/jiach
             ]
 
             for edge in edges:
-                points = corners[[edge[0], edge[1]]]
+                points = world_corners[[edge[0], edge[1]]]
                 ax.plot3D(points[:, 0], points[:, 1], points[:, 2],
                          color=color, alpha=0.9, linewidth=4)
+
+            # Draw object coordinate axes for individual view
+            axis_length = np.mean(size) * 0.5
+            for axis_idx, (color_axis, label) in enumerate([('red', 'X'), ('green', 'Y'), ('blue', 'Z')]):
+                axis_vec = axes_sf3d[:, axis_idx] * axis_length
+                ax.plot3D([center[0], center[0] + axis_vec[0]],
+                         [center[1], center[1] + axis_vec[1]],
+                         [center[2], center[2] + axis_vec[2]],
+                         color=color_axis, linewidth=5, alpha=1.0)
+
+                # Add axis labels
+                ax.text(center[0] + axis_vec[0], center[1] + axis_vec[1], center[2] + axis_vec[2],
+                       label, color=color_axis, fontsize=12, weight='bold')
 
             # Add object center marker
             ax.scatter(center[0], center[1], center[2],
