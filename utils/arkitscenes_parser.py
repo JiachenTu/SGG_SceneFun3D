@@ -93,21 +93,21 @@ class ARKitScenesParser:
 
         self.objects = []
         for obj_data in self.data.get('data', []):
-            # Parse main OBB (convert from mm to meters)
+            # Parse main OBB (convert from cm to meters)
             obb_data = obj_data['segments']['obb']
             obb = OrientedBoundingBox(
-                centroid=np.array(obb_data['centroid']) / 1000.0,  # Convert mm to m
-                axes_lengths=np.array(obb_data['axesLengths']) / 1000.0,  # Convert mm to m
+                centroid=np.array(obb_data['centroid']) / 100.0,  # Convert cm to m
+                axes_lengths=np.array(obb_data['axesLengths']) / 100.0,  # Convert cm to m
                 normalized_axes=np.array(obb_data['normalizedAxes'])
             )
 
-            # Parse aligned OBB if available (convert from mm to meters)
+            # Parse aligned OBB if available (convert from cm to meters)
             obb_aligned = None
             if 'obbAligned' in obj_data['segments']:
                 obb_aligned_data = obj_data['segments']['obbAligned']
                 obb_aligned = OrientedBoundingBox(
-                    centroid=np.array(obb_aligned_data['centroid']) / 1000.0,  # Convert mm to m
-                    axes_lengths=np.array(obb_aligned_data['axesLengths']) / 1000.0,  # Convert mm to m
+                    centroid=np.array(obb_aligned_data['centroid']) / 100.0,  # Convert cm to m
+                    axes_lengths=np.array(obb_aligned_data['axesLengths']) / 100.0,  # Convert cm to m
                     normalized_axes=np.array(obb_aligned_data['normalizedAxes'])
                 )
 

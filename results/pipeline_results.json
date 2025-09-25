@@ -6,57 +6,57 @@
       "id": "MhdKxnWEXdHg9Nle",
       "class": "bathtub",
       "center_arkit_m": [
-        0.057752365838770456,
-        0.24114109258634014,
-        0.15495470160805433
+        0.5775236583877046,
+        2.4114109258634016,
+        1.5495470160805433
       ],
       "center_scenefun3d": [
-        -0.044043691202658185,
-        -0.4338989314449107,
-        92.55095974445956
+        1.41725532262332,
+        1.2467493090159307,
+        93.95279702225005
       ],
       "size_m": [
-        0.1643875291119828,
-        0.06063785558839055,
-        0.07311160632926039
+        1.6438752911198278,
+        0.6063785558839055,
+        0.7311160632926039
       ]
     },
     {
       "id": "3uGRxuedwz65iEro",
       "class": "sink",
       "center_arkit_m": [
-        0.08151216961793205,
-        0.2808400042877756,
-        0.06749037043132494
+        0.8151216961793204,
+        2.8084000428777562,
+        0.6749037043132495
       ],
       "center_scenefun3d": [
-        -0.0045388696228943065,
-        -0.4093636059868182,
-        92.46362173457433
+        1.8123035384209585,
+        1.492102563596856,
+        93.07941692339782
       ],
       "size_m": [
-        0.05693943386935481,
-        0.023101684166782432,
-        0.0436989713209234
+        0.569394338693548,
+        0.23101684166782432,
+        0.4369897132092341
       ]
     },
     {
       "id": "80l9QgJ27XfuJBMv",
       "class": "toilet",
       "center_arkit_m": [
-        0.0290103114612214,
-        0.249197759707797,
-        -0.009673159621028125
+        0.290103114612214,
+        2.49197759707797,
+        -0.09673159621028125
       ],
       "center_scenefun3d": [
-        -0.06562870553143062,
-        -0.4129422681213393,
-        92.38637464888106
+        1.2014051793355953,
+        1.4563159422516454,
+        92.3069460664652
       ],
       "size_m": [
-        0.041988617738284745,
-        0.07951832375949394,
-        0.06717331664681268
+        0.41988617738284745,
+        0.7951832375949394,
+        0.6717331664681268
       ]
     }
   ],
@@ -161,54 +161,5 @@
       "voxel_size_m": 0.005
     }
   ],
-  "relationships": [
-    {
-      "object_id": "MhdKxnWEXdHg9Nle",
-      "object_class": "bathtub",
-      "affordance_id": "0682ad6f-09b5-4257-be3d-9a615bc9283a",
-      "affordance_task": "Close the bathroom door",
-      "distance": 0.6756923485732041,
-      "confidence": 0.32430765142679585
-    },
-    {
-      "object_id": "MhdKxnWEXdHg9Nle",
-      "object_class": "bathtub",
-      "affordance_id": "e93e1b5c-0cb6-4712-8ab6-74d39b723072",
-      "affordance_task": "Close the bathroom door",
-      "distance": 0.7772777418791427,
-      "confidence": 0.22272225812085733
-    },
-    {
-      "object_id": "3uGRxuedwz65iEro",
-      "object_class": "sink",
-      "affordance_id": "0682ad6f-09b5-4257-be3d-9a615bc9283a",
-      "affordance_task": "Close the bathroom door",
-      "distance": 0.7300241453327981,
-      "confidence": 0.26997585466720186
-    },
-    {
-      "object_id": "3uGRxuedwz65iEro",
-      "object_class": "sink",
-      "affordance_id": "e93e1b5c-0cb6-4712-8ab6-74d39b723072",
-      "affordance_task": "Close the bathroom door",
-      "distance": 0.8278221516478325,
-      "confidence": 0.17217784835216754
-    },
-    {
-      "object_id": "80l9QgJ27XfuJBMv",
-      "object_class": "toilet",
-      "affordance_id": "0682ad6f-09b5-4257-be3d-9a615bc9283a",
-      "affordance_task": "Close the bathroom door",
-      "distance": 0.7594762337473746,
-      "confidence": 0.2405237662526254
-    },
-    {
-      "object_id": "80l9QgJ27XfuJBMv",
-      "object_class": "toilet",
-      "affordance_id": "e93e1b5c-0cb6-4712-8ab6-74d39b723072",
-      "affordance_task": "Close the bathroom door",
-      "distance": 0.846447228074641,
-      "confidence": 0.153552771925359
-    }
-  ]
+  "relationships": []
 }

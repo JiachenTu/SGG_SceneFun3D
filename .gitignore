@@ -48,3 +48,6 @@ Thumbs.db
 # Config files with sensitive data
 config.json
 secrets.json
+
+visualizations/
+test.ipynb

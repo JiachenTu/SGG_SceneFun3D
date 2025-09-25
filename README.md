@@ -152,8 +152,16 @@ The pipeline generates a JSON scene graph with this structure (all units in mete
 
 ### Unit Handling and Resolution
 
+**IMPORTANT - ARKitScenes Units Correction:**
+- ⚠️ **ARKitScenes 3D annotations are in CENTIMETERS, not millimeters**
+- Analysis shows realistic object dimensions with cm→m conversion:
+  - Bathtub: [164.4, 60.6, 73.1] cm → [1.64, 0.61, 0.73] m ✅
+  - Toilet: [42.0, 79.5, 67.2] cm → [0.42, 0.80, 0.67] m ✅
+  - Sink: [56.9, 23.1, 43.7] cm → [0.57, 0.23, 0.44] m ✅
+- Millimeter conversion produces unrealistically small objects (4-16 cm total size)
+
 **Consistent Meter Units:**
-- ARKitScenes data converted from millimeters to meters at input parsing
+- ARKitScenes data converted from **centimeters** to meters (÷100, not ÷1000)
 - All coordinates, sizes, and distances in meters throughout pipeline
 - Eliminates unit conversion errors and improves clarity
 

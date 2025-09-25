@@ -115,7 +115,7 @@ def run_pipeline():
             annotation = annotations[0]  # First annotation
 
             # Transform object to SceneFun3D coordinates (already in meters)
-            obj_center_m = obj.obb.centroid / 1000.0
+            obj_center_m = obj.obb.centroid
             obj_center_scenefun3d = (inverse_transform @ np.append(obj_center_m, 1))[:3]
 
             # Get affordance points

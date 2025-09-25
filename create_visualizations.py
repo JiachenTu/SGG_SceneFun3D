@@ -14,6 +14,30 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.patches as mpatches
 from pathlib import Path
+import sys
+import os
+
+# Add SceneFun3D to path for loading point cloud data
+scenefun3d_root = Path("/home/jiachen/scratch/SceneFun3D/scenefun3d")
+original_cwd = os.getcwd()
+os.chdir(str(scenefun3d_root))
+sys.path.insert(0, str(scenefun3d_root))
+
+try:
+    from utils.data_parser import DataParser
+except ImportError:
+    print("Warning: Could not import DataParser - point cloud visualization will be disabled")
+    DataParser = None
+finally:
+    os.chdir(original_cwd)
+
+# Add local utils including point cloud labeler
+sys.path.append(str(Path(__file__).parent / "utils"))
+try:
+    from point_cloud_labeler import create_labeled_point_clouds
+except ImportError:
+    print("Warning: Could not import point_cloud_labeler")
+    create_labeled_point_clouds = None
 
 def load_results(results_file):
     """Load pipeline results from JSON file."""
@@ -190,6 +214,903 @@ def create_3d_scene_visualization(results, output_dir):
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
     print(f"🎯 3D scene visualization saved to: {output_file}")
     plt.close()
+
+def create_point_cloud_visualization(results, output_dir, data_root="/home/jiachen/scratch/SceneFun3D/alignment/data_examples/scenefun3d"):
+    """Create 3D point cloud visualization with overlaid object and affordance bounding boxes."""
+    if DataParser is None:
+        print("⚠️ Skipping point cloud visualization - DataParser not available")
+        return
+
+    try:
+        # Load point cloud data
+        visit_id = results.get('visit_id', '422203')
+        parser = DataParser(data_root)
+        laser_scan = parser.get_laser_scan(visit_id)
+
+        pts = np.asarray(laser_scan.points)
+        print(f"📊 Loaded point cloud: {len(pts):,} points")
+
+        # Sample up to 20k points for plotting
+        n_plot = min(20000, len(pts))
+        idx = np.random.choice(len(pts), size=n_plot, replace=False)
+        spts = pts[idx]
+
+        fig = plt.figure(figsize=(16, 12))
+        ax = fig.add_subplot(111, projection='3d')
+
+        # Plot point cloud
+        c = None
+        if laser_scan.has_colors():
+            cols = np.asarray(laser_scan.colors)[idx]
+            # matplotlib expects colors in range [0,1]
+            ax.scatter(spts[:,0], spts[:,1], spts[:,2], s=0.5, c=cols, alpha=0.6)
+        else:
+            # color by z value
+            sc = ax.scatter(spts[:,0], spts[:,1], spts[:,2], s=0.5, c=spts[:,2], cmap='viridis', alpha=0.6)
+
+        # Overlay object bounding boxes
+        objects = results['objects']
+        object_colors = ['red', 'orange', 'yellow', 'cyan', 'magenta']
+
+        for i, obj in enumerate(objects):
+            center = np.array(obj['center_scenefun3d'])
+            size = np.array(obj.get('size_m', obj.get('size', [1, 1, 1])))
+            color = object_colors[i % len(object_colors)]
+
+            # Draw object bounding box
+            half_size = size / 2
+            corners = []
+            for dx in [-1, 1]:
+                for dy in [-1, 1]:
+                    for dz in [-1, 1]:
+                        corner = center + half_size * np.array([dx, dy, dz])
+                        corners.append(corner)
+
+            corners = np.array(corners)
+
+            # Draw wireframe box edges with thicker lines for visibility
+            edges = [
+                (0, 1), (2, 3), (4, 5), (6, 7),  # x-parallel edges
+                (0, 2), (1, 3), (4, 6), (5, 7),  # y-parallel edges
+                (0, 4), (1, 5), (2, 6), (3, 7)   # z-parallel edges
+            ]
+
+            for edge in edges:
+                points = corners[[edge[0], edge[1]]]
+                ax.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                         color=color, alpha=0.9, linewidth=3)
+
+            # Add object label with background for better visibility
+            ax.text(center[0], center[1], center[2] + size[2]/2 + 0.05,
+                   f"OBJECT: {obj['class']}\nID: {obj['id'][:8]}",
+                   fontsize=10, ha='center', va='bottom', weight='bold',
+                   bbox=dict(boxstyle='round,pad=0.3', facecolor=color, alpha=0.8, edgecolor='white'))
+
+        # Overlay affordance bounding boxes
+        affordances = results['affordances']
+
+        for i, aff in enumerate(affordances):
+            if 'min_coords' in aff and 'max_coords' in aff:
+                min_coords = np.array(aff['min_coords'])
+                max_coords = np.array(aff['max_coords'])
+                center = np.array(aff['center'])
+
+                # Calculate box corners
+                corners = []
+                for dx in [min_coords[0], max_coords[0]]:
+                    for dy in [min_coords[1], max_coords[1]]:
+                        for dz in [min_coords[2], max_coords[2]]:
+                            corners.append([dx, dy, dz])
+
+                corners = np.array(corners)
+
+                # Draw affordance wireframe box edges with dashed lines
+                edges = [
+                    (0, 1), (2, 3), (4, 5), (6, 7),  # x-parallel edges
+                    (0, 2), (1, 3), (4, 6), (5, 7),  # y-parallel edges
+                    (0, 4), (1, 5), (2, 6), (3, 7)   # z-parallel edges
+                ]
+
+                for edge in edges:
+                    points = corners[[edge[0], edge[1]]]
+                    ax.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                             color='purple', alpha=0.8, linewidth=2, linestyle='--')
+
+                # Add affordance marker and label
+                ax.scatter(center[0], center[1], center[2],
+                          c='purple', s=200, alpha=0.9, marker='^',
+                          edgecolors='white', linewidth=2)
+
+                task_name = aff.get('task_description', 'Unknown task')
+                # Truncate long task names for better display
+                if len(task_name) > 30:
+                    task_name = task_name[:27] + "..."
+
+                ax.text(center[0], center[1], center[2] + (max_coords[2] - min_coords[2])/2 + 0.05,
+                       f"AFFORDANCE: {task_name}\nID: {aff['id'][:8]}\nPoints: {aff['point_count']}",
+                       fontsize=8, ha='center', va='bottom', weight='bold',
+                       bbox=dict(boxstyle='round,pad=0.3', facecolor='lavender',
+                                alpha=0.9, edgecolor='purple', linewidth=1.5))
+
+        # Add legend for better understanding
+        legend_elements = [
+            plt.Line2D([0], [0], color='red', linewidth=3, label='Object Bounding Boxes'),
+            plt.Line2D([0], [0], color='purple', linewidth=2, linestyle='--', label='Affordance Bounding Boxes'),
+            plt.scatter([0], [0], c='gray', s=20, alpha=0.6, label='Point Cloud'),
+            plt.scatter([0], [0], c='purple', s=100, marker='^', label='Affordance Centers')
+        ]
+        ax.legend(handles=legend_elements, loc='upper left', fontsize=10)
+
+        # Set labels and title
+        ax.set_xlabel('X (meters)', fontsize=12)
+        ax.set_ylabel('Y (meters)', fontsize=12)
+        ax.set_zlabel('Z (meters)', fontsize=12)
+        ax.set_title('Point Cloud with Object & Affordance Bounding Boxes\n(SceneFun3D Coordinates)',
+                    fontsize=14, weight='bold', pad=20)
+
+        # Set equal aspect ratio
+        all_points = [spts]
+        for obj in objects:
+            all_points.append([obj['center_scenefun3d']])
+        for aff in affordances:
+            all_points.append([aff['center']])
+
+        all_points = np.vstack(all_points)
+
+        max_range = np.array([
+            np.max(all_points[:, i]) - np.min(all_points[:, i])
+            for i in range(3)
+        ]).max() / 2.0
+
+        mid_x = np.mean(all_points[:, 0])
+        mid_y = np.mean(all_points[:, 1])
+        mid_z = np.mean(all_points[:, 2])
+
+        ax.set_xlim(mid_x - max_range, mid_x + max_range)
+        ax.set_ylim(mid_y - max_range, mid_y + max_range)
+        ax.set_zlim(mid_z - max_range, mid_z + max_range)
+
+        # Save the visualization
+        output_file = output_dir / 'point_cloud_with_bboxes.png'
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
+        print(f"🌟 Point cloud visualization with bounding boxes saved to: {output_file}")
+        plt.close()
+
+    except Exception as e:
+        print(f"❌ Error creating point cloud visualization: {e}")
+        import traceback
+        traceback.print_exc()
+
+def calculate_best_view_angle(center, size, points=None):
+    """Calculate the best viewing angle for an object or affordance."""
+    # Default view angles to try (elevation, azimuth)
+    angles = [
+        (30, 45),   # Standard 3/4 view
+        (45, 135),  # Top-left view
+        (20, -45),  # Front-right view
+        (60, 0),    # Top view
+        (0, 90),    # Side view
+    ]
+
+    # For objects with clear orientation, choose based on size
+    if size is not None:
+        size_array = np.array(size)
+        # Find the longest dimension for best side view
+        max_dim_idx = np.argmax(size_array)
+
+        if max_dim_idx == 0:  # X is longest - view from Y-Z plane
+            return (30, 0)
+        elif max_dim_idx == 1:  # Y is longest - view from X-Z plane
+            return (30, 90)
+        else:  # Z is longest - view from below
+            return (60, 45)
+
+    # Default good angle
+    return (30, 45)
+
+def create_individual_visualizations(results, output_dir, data_root="/home/jiachen/scratch/SceneFun3D/alignment/data_examples/scenefun3d"):
+    """Create individual focused visualizations for each object and affordance."""
+    if DataParser is None:
+        print("⚠️ Skipping individual visualizations - DataParser not available")
+        return
+
+    try:
+        # Load point cloud data
+        visit_id = results.get('visit_id', '422203')
+        parser = DataParser(data_root)
+        laser_scan = parser.get_laser_scan(visit_id)
+        pts = np.asarray(laser_scan.points)
+
+        # Create individual directories
+        individual_dir = output_dir / 'individual'
+        objects_dir = individual_dir / 'objects'
+        affordances_dir = individual_dir / 'affordances'
+        objects_dir.mkdir(parents=True, exist_ok=True)
+        affordances_dir.mkdir(parents=True, exist_ok=True)
+
+        print(f"📸 Creating individual visualizations...")
+
+        # Individual object visualizations
+        objects = results['objects']
+        object_colors = ['red', 'orange', 'yellow', 'cyan', 'magenta']
+
+        for i, obj in enumerate(objects):
+            center = np.array(obj['center_scenefun3d'])
+            size = np.array(obj.get('size_m', obj.get('size', [1, 1, 1])))
+            color = object_colors[i % len(object_colors)]
+
+            # Define region of interest around object (with padding)
+            padding = np.maximum(size * 2, [0.5, 0.5, 0.5])  # At least 50cm padding
+            min_roi = center - padding
+            max_roi = center + padding
+
+            # Filter points within ROI
+            mask = ((pts >= min_roi) & (pts <= max_roi)).all(axis=1)
+            roi_pts = pts[mask]
+
+            if len(roi_pts) < 100:  # Need minimum points for visualization
+                # Expand search if too few points
+                padding *= 2
+                min_roi = center - padding
+                max_roi = center + padding
+                mask = ((pts >= min_roi) & (pts <= max_roi)).all(axis=1)
+                roi_pts = pts[mask]
+
+            # Sample points if too many
+            if len(roi_pts) > 15000:
+                idx = np.random.choice(len(roi_pts), size=15000, replace=False)
+                roi_pts = roi_pts[idx]
+
+            # Create figure
+            fig = plt.figure(figsize=(12, 10))
+            ax = fig.add_subplot(111, projection='3d')
+
+            # Plot ROI point cloud
+            if laser_scan.has_colors():
+                # Get colors for ROI points
+                roi_colors = np.asarray(laser_scan.colors)[mask]
+                if len(roi_colors) > 15000:
+                    roi_colors = roi_colors[idx]
+                ax.scatter(roi_pts[:,0], roi_pts[:,1], roi_pts[:,2],
+                          s=1.5, c=roi_colors, alpha=0.7)
+            else:
+                ax.scatter(roi_pts[:,0], roi_pts[:,1], roi_pts[:,2],
+                          s=1.5, c=roi_pts[:,2], cmap='viridis', alpha=0.7)
+
+            # Draw object bounding box with thicker lines
+            half_size = size / 2
+            corners = []
+            for dx in [-1, 1]:
+                for dy in [-1, 1]:
+                    for dz in [-1, 1]:
+                        corner = center + half_size * np.array([dx, dy, dz])
+                        corners.append(corner)
+
+            corners = np.array(corners)
+            edges = [
+                (0, 1), (2, 3), (4, 5), (6, 7),  # x-parallel edges
+                (0, 2), (1, 3), (4, 6), (5, 7),  # y-parallel edges
+                (0, 4), (1, 5), (2, 6), (3, 7)   # z-parallel edges
+            ]
+
+            for edge in edges:
+                points = corners[[edge[0], edge[1]]]
+                ax.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                         color=color, alpha=0.9, linewidth=4)
+
+            # Add object center marker
+            ax.scatter(center[0], center[1], center[2],
+                      c=color, s=300, alpha=1.0, marker='o',
+                      edgecolors='white', linewidth=3)
+
+            # Set best viewing angle
+            elev, azim = calculate_best_view_angle(center, size)
+            ax.view_init(elev=elev, azim=azim)
+
+            # Set labels and title
+            ax.set_xlabel('X (meters)', fontsize=12)
+            ax.set_ylabel('Y (meters)', fontsize=12)
+            ax.set_zlabel('Z (meters)', fontsize=12)
+            ax.set_title(f'Object: {obj["class"]}\nID: {obj["id"][:8]}\nSize: [{size[0]:.2f}m × {size[1]:.2f}m × {size[2]:.2f}m]',
+                        fontsize=14, weight='bold', pad=20)
+
+            # Set axis limits to focus on object
+            margin = np.maximum(size.max() * 0.6, 0.3)
+            ax.set_xlim(center[0] - margin, center[0] + margin)
+            ax.set_ylim(center[1] - margin, center[1] + margin)
+            ax.set_zlim(center[2] - margin, center[2] + margin)
+
+            # Save individual object visualization
+            obj_filename = f"object_{i+1}_{obj['class'].lower().replace(' ', '_')}_{obj['id'][:8]}.png"
+            output_file = objects_dir / obj_filename
+            plt.savefig(output_file, dpi=300, bbox_inches='tight')
+            print(f"   📦 Object {i+1} ({obj['class']}) saved to: {obj_filename}")
+            plt.close()
+
+        # Individual affordance visualizations
+        affordances = results['affordances']
+
+        for i, aff in enumerate(affordances):
+            center = np.array(aff['center'])
+
+            if 'min_coords' in aff and 'max_coords' in aff:
+                min_coords = np.array(aff['min_coords'])
+                max_coords = np.array(aff['max_coords'])
+                size = max_coords - min_coords
+            else:
+                size = np.array(aff.get('size', [0.1, 0.1, 0.1]))
+                min_coords = center - size/2
+                max_coords = center + size/2
+
+            # Define ROI around affordance
+            padding = np.maximum(size * 1.5, [0.3, 0.3, 0.3])  # At least 30cm padding
+            min_roi = center - padding
+            max_roi = center + padding
+
+            # Filter points within ROI
+            mask = ((pts >= min_roi) & (pts <= max_roi)).all(axis=1)
+            roi_pts = pts[mask]
+
+            if len(roi_pts) < 50:  # Expand if too few points
+                padding *= 2
+                min_roi = center - padding
+                max_roi = center + padding
+                mask = ((pts >= min_roi) & (pts <= max_roi)).all(axis=1)
+                roi_pts = pts[mask]
+
+            # Sample points if too many
+            if len(roi_pts) > 10000:
+                idx = np.random.choice(len(roi_pts), size=10000, replace=False)
+                roi_pts = roi_pts[idx]
+
+            # Create figure
+            fig = plt.figure(figsize=(12, 10))
+            ax = fig.add_subplot(111, projection='3d')
+
+            # Plot ROI point cloud
+            if len(roi_pts) > 0:
+                ax.scatter(roi_pts[:,0], roi_pts[:,1], roi_pts[:,2],
+                          s=2, c=roi_pts[:,2], cmap='viridis', alpha=0.8)
+
+            # Draw affordance bounding box
+            corners = []
+            for dx in [min_coords[0], max_coords[0]]:
+                for dy in [min_coords[1], max_coords[1]]:
+                    for dz in [min_coords[2], max_coords[2]]:
+                        corners.append([dx, dy, dz])
+
+            corners = np.array(corners)
+            edges = [
+                (0, 1), (2, 3), (4, 5), (6, 7),  # x-parallel edges
+                (0, 2), (1, 3), (4, 6), (5, 7),  # y-parallel edges
+                (0, 4), (1, 5), (2, 6), (3, 7)   # z-parallel edges
+            ]
+
+            for edge in edges:
+                points = corners[[edge[0], edge[1]]]
+                ax.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                         color='purple', alpha=0.9, linewidth=4, linestyle='-')
+
+            # Add affordance center marker
+            ax.scatter(center[0], center[1], center[2],
+                      c='purple', s=400, alpha=1.0, marker='^',
+                      edgecolors='white', linewidth=3)
+
+            # Set best viewing angle
+            elev, azim = calculate_best_view_angle(center, size)
+            ax.view_init(elev=elev, azim=azim)
+
+            # Set labels and title
+            task_name = aff.get('task_description', 'Unknown task')
+            ax.set_xlabel('X (meters)', fontsize=12)
+            ax.set_ylabel('Y (meters)', fontsize=12)
+            ax.set_zlabel('Z (meters)', fontsize=12)
+            ax.set_title(f'Affordance: {task_name}\nID: {aff["id"][:8]}\nPoints: {aff["point_count"]} | Size: [{size[0]:.3f}m × {size[1]:.3f}m × {size[2]:.3f}m]',
+                        fontsize=14, weight='bold', pad=20)
+
+            # Set axis limits to focus on affordance
+            margin = np.maximum(size.max() * 0.8, 0.2)
+            ax.set_xlim(center[0] - margin, center[0] + margin)
+            ax.set_ylim(center[1] - margin, center[1] + margin)
+            ax.set_zlim(center[2] - margin, center[2] + margin)
+
+            # Save individual affordance visualization
+            task_safe = task_name.lower().replace(' ', '_').replace('/', '_')[:20]
+            aff_filename = f"affordance_{i+1}_{task_safe}_{aff['id'][:8]}.png"
+            output_file = affordances_dir / aff_filename
+            plt.savefig(output_file, dpi=300, bbox_inches='tight')
+            print(f"   🎯 Affordance {i+1} ({task_name[:20]}...) saved to: {aff_filename}")
+            plt.close()
+
+        print(f"✅ Individual visualizations created: {len(objects)} objects, {len(affordances)} affordances")
+
+    except Exception as e:
+        print(f"❌ Error creating individual visualizations: {e}")
+        import traceback
+        traceback.print_exc()
+
+def create_side_by_side_visualizations(results, output_dir, data_root="/home/jiachen/scratch/SceneFun3D/alignment/data_examples/scenefun3d"):
+    """Create side-by-side visualizations showing zoomed view and location in whole scene."""
+    if DataParser is None:
+        print("⚠️ Skipping side-by-side visualizations - DataParser not available")
+        return
+
+    try:
+        # Load point cloud data
+        visit_id = results.get('visit_id', '422203')
+        parser = DataParser(data_root)
+        laser_scan = parser.get_laser_scan(visit_id)
+        pts = np.asarray(laser_scan.points)
+
+        # Sample full scene for context view (use more points for better context)
+        n_context = min(30000, len(pts))
+        context_idx = np.random.choice(len(pts), size=n_context, replace=False)
+        context_pts = pts[context_idx]
+
+        # Create side-by-side directories
+        sidebyside_dir = output_dir / 'side_by_side'
+        objects_dir = sidebyside_dir / 'objects'
+        affordances_dir = sidebyside_dir / 'affordances'
+        objects_dir.mkdir(parents=True, exist_ok=True)
+        affordances_dir.mkdir(parents=True, exist_ok=True)
+
+        print(f"🔍 Creating side-by-side visualizations...")
+
+        # Side-by-side object visualizations
+        objects = results['objects']
+        affordances = results['affordances']
+        object_colors = ['red', 'orange', 'yellow', 'cyan', 'magenta']
+
+        for i, obj in enumerate(objects):
+            center = np.array(obj['center_scenefun3d'])
+            size = np.array(obj.get('size_m', obj.get('size', [1, 1, 1])))
+            color = object_colors[i % len(object_colors)]
+
+            # Create figure with two subplots side by side
+            fig = plt.figure(figsize=(20, 10))
+
+            # === LEFT PANEL: CONTEXT VIEW ===
+            ax_context = fig.add_subplot(121, projection='3d')
+
+            # Plot context point cloud
+            if laser_scan.has_colors():
+                context_colors = np.asarray(laser_scan.colors)[context_idx]
+                ax_context.scatter(context_pts[:,0], context_pts[:,1], context_pts[:,2],
+                                 s=0.5, c=context_colors, alpha=0.4)
+            else:
+                ax_context.scatter(context_pts[:,0], context_pts[:,1], context_pts[:,2],
+                                 s=0.5, c=context_pts[:,2], cmap='viridis', alpha=0.4)
+
+            # Draw ALL objects in context with faded colors
+            for j, other_obj in enumerate(objects):
+                other_center = np.array(other_obj['center_scenefun3d'])
+                other_size = np.array(other_obj.get('size_m', other_obj.get('size', [1, 1, 1])))
+                other_color = object_colors[j % len(object_colors)]
+
+                # Highlight current object, fade others
+                alpha = 1.0 if j == i else 0.3
+                linewidth = 4 if j == i else 2
+
+                # Draw bounding box
+                half_size = other_size / 2
+                corners = []
+                for dx in [-1, 1]:
+                    for dy in [-1, 1]:
+                        for dz in [-1, 1]:
+                            corner = other_center + half_size * np.array([dx, dy, dz])
+                            corners.append(corner)
+
+                corners = np.array(corners)
+                edges = [
+                    (0, 1), (2, 3), (4, 5), (6, 7),  # x-parallel edges
+                    (0, 2), (1, 3), (4, 6), (5, 7),  # y-parallel edges
+                    (0, 4), (1, 5), (2, 6), (3, 7)   # z-parallel edges
+                ]
+
+                for edge in edges:
+                    points = corners[[edge[0], edge[1]]]
+                    ax_context.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                                    color=other_color, alpha=alpha, linewidth=linewidth)
+
+                # Add center marker (highlight current object)
+                marker_size = 400 if j == i else 100
+                ax_context.scatter(other_center[0], other_center[1], other_center[2],
+                                 c=other_color, s=marker_size, alpha=alpha, marker='o',
+                                 edgecolors='white', linewidth=2)
+
+            # Draw ALL affordances in context with faded colors
+            for aff in affordances:
+                if 'min_coords' in aff and 'max_coords' in aff:
+                    min_coords = np.array(aff['min_coords'])
+                    max_coords = np.array(aff['max_coords'])
+                    aff_center = np.array(aff['center'])
+
+                    # Draw affordance bounding box (faded)
+                    corners = []
+                    for dx in [min_coords[0], max_coords[0]]:
+                        for dy in [min_coords[1], max_coords[1]]:
+                            for dz in [min_coords[2], max_coords[2]]:
+                                corners.append([dx, dy, dz])
+
+                    corners = np.array(corners)
+                    for edge in edges:
+                        points = corners[[edge[0], edge[1]]]
+                        ax_context.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                                        color='purple', alpha=0.2, linewidth=1, linestyle='--')
+
+                    ax_context.scatter(aff_center[0], aff_center[1], aff_center[2],
+                                     c='purple', s=50, alpha=0.3, marker='^')
+
+            # Add highlight box around ROI for current object
+            roi_padding = np.maximum(size * 2, [0.5, 0.5, 0.5])
+            roi_min = center - roi_padding
+            roi_max = center + roi_padding
+
+            # Draw ROI box
+            roi_corners = []
+            for dx in [roi_min[0], roi_max[0]]:
+                for dy in [roi_min[1], roi_max[1]]:
+                    for dz in [roi_min[2], roi_max[2]]:
+                        roi_corners.append([dx, dy, dz])
+
+            roi_corners = np.array(roi_corners)
+            for edge in edges:
+                points = roi_corners[[edge[0], edge[1]]]
+                ax_context.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                                color='lime', alpha=0.8, linewidth=3, linestyle=':')
+
+            # Context view settings
+            ax_context.set_title(f'CONTEXT: {obj["class"]} Location in Full Scene\n(Green box shows zoomed region)',
+                               fontsize=14, weight='bold')
+            ax_context.set_xlabel('X (meters)', fontsize=10)
+            ax_context.set_ylabel('Y (meters)', fontsize=10)
+            ax_context.set_zlabel('Z (meters)', fontsize=10)
+
+            # Set context view to show full scene
+            all_points = context_pts
+            max_range = np.array([
+                np.max(all_points[:, i]) - np.min(all_points[:, i])
+                for i in range(3)
+            ]).max() / 2.0
+
+            mid_x = np.mean(all_points[:, 0])
+            mid_y = np.mean(all_points[:, 1])
+            mid_z = np.mean(all_points[:, 2])
+
+            ax_context.set_xlim(mid_x - max_range, mid_x + max_range)
+            ax_context.set_ylim(mid_y - max_range, mid_y + max_range)
+            ax_context.set_zlim(mid_z - max_range, mid_z + max_range)
+
+            # === RIGHT PANEL: ZOOMED VIEW ===
+            ax_zoom = fig.add_subplot(122, projection='3d')
+
+            # Get ROI points for zoom view
+            roi_padding = np.maximum(size * 2, [0.5, 0.5, 0.5])
+            min_roi = center - roi_padding
+            max_roi = center + roi_padding
+
+            mask = ((pts >= min_roi) & (pts <= max_roi)).all(axis=1)
+            roi_pts = pts[mask]
+
+            if len(roi_pts) < 100:
+                roi_padding *= 2
+                min_roi = center - roi_padding
+                max_roi = center + roi_padding
+                mask = ((pts >= min_roi) & (pts <= max_roi)).all(axis=1)
+                roi_pts = pts[mask]
+
+            # Sample ROI points
+            if len(roi_pts) > 15000:
+                roi_idx = np.random.choice(len(roi_pts), size=15000, replace=False)
+                roi_pts = roi_pts[roi_idx]
+
+            # Plot ROI point cloud
+            if laser_scan.has_colors():
+                roi_colors = np.asarray(laser_scan.colors)[mask]
+                if len(roi_colors) > 15000:
+                    roi_colors = roi_colors[roi_idx]
+                ax_zoom.scatter(roi_pts[:,0], roi_pts[:,1], roi_pts[:,2],
+                               s=2, c=roi_colors, alpha=0.8)
+            else:
+                ax_zoom.scatter(roi_pts[:,0], roi_pts[:,1], roi_pts[:,2],
+                               s=2, c=roi_pts[:,2], cmap='viridis', alpha=0.8)
+
+            # Draw current object bounding box (highlighted)
+            half_size = size / 2
+            corners = []
+            for dx in [-1, 1]:
+                for dy in [-1, 1]:
+                    for dz in [-1, 1]:
+                        corner = center + half_size * np.array([dx, dy, dz])
+                        corners.append(corner)
+
+            corners = np.array(corners)
+            for edge in edges:
+                points = corners[[edge[0], edge[1]]]
+                ax_zoom.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                              color=color, alpha=0.9, linewidth=5)
+
+            # Add object center marker
+            ax_zoom.scatter(center[0], center[1], center[2],
+                           c=color, s=400, alpha=1.0, marker='o',
+                           edgecolors='white', linewidth=3)
+
+            # Draw any affordances that fall within ROI
+            for aff in affordances:
+                if 'min_coords' in aff and 'max_coords' in aff:
+                    aff_center = np.array(aff['center'])
+                    # Check if affordance center is within ROI
+                    if ((aff_center >= min_roi) & (aff_center <= max_roi)).all():
+                        min_coords = np.array(aff['min_coords'])
+                        max_coords = np.array(aff['max_coords'])
+
+                        # Draw affordance bounding box
+                        corners = []
+                        for dx in [min_coords[0], max_coords[0]]:
+                            for dy in [min_coords[1], max_coords[1]]:
+                                for dz in [min_coords[2], max_coords[2]]:
+                                    corners.append([dx, dy, dz])
+
+                        corners = np.array(corners)
+                        for edge in edges:
+                            points = corners[[edge[0], edge[1]]]
+                            ax_zoom.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                                         color='purple', alpha=0.7, linewidth=3, linestyle='--')
+
+                        ax_zoom.scatter(aff_center[0], aff_center[1], aff_center[2],
+                                       c='purple', s=200, alpha=0.9, marker='^',
+                                       edgecolors='white', linewidth=2)
+
+            # Zoom view settings
+            elev, azim = calculate_best_view_angle(center, size)
+            ax_zoom.view_init(elev=elev, azim=azim)
+
+            ax_zoom.set_title(f'ZOOM: {obj["class"]} Detail View\nSize: [{size[0]:.2f}m × {size[1]:.2f}m × {size[2]:.2f}m]',
+                            fontsize=14, weight='bold')
+            ax_zoom.set_xlabel('X (meters)', fontsize=10)
+            ax_zoom.set_ylabel('Y (meters)', fontsize=10)
+            ax_zoom.set_zlabel('Z (meters)', fontsize=10)
+
+            # Set zoom limits
+            margin = np.maximum(size.max() * 0.6, 0.3)
+            ax_zoom.set_xlim(center[0] - margin, center[0] + margin)
+            ax_zoom.set_ylim(center[1] - margin, center[1] + margin)
+            ax_zoom.set_zlim(center[2] - margin, center[2] + margin)
+
+            # Add overall title
+            fig.suptitle(f'Side-by-Side View: Object {i+1} - {obj["class"]} (ID: {obj["id"][:8]})',
+                        fontsize=16, weight='bold', y=0.95)
+
+            plt.tight_layout()
+
+            # Save side-by-side object visualization
+            obj_filename = f"sidebyside_object_{i+1}_{obj['class'].lower().replace(' ', '_')}_{obj['id'][:8]}.png"
+            output_file = objects_dir / obj_filename
+            plt.savefig(output_file, dpi=300, bbox_inches='tight')
+            print(f"   📦🔍 Object {i+1} ({obj['class']}) side-by-side saved to: {obj_filename}")
+            plt.close()
+
+        # Side-by-side affordance visualizations
+        for i, aff in enumerate(affordances):
+            center = np.array(aff['center'])
+
+            if 'min_coords' in aff and 'max_coords' in aff:
+                min_coords = np.array(aff['min_coords'])
+                max_coords = np.array(aff['max_coords'])
+                size = max_coords - min_coords
+            else:
+                size = np.array(aff.get('size', [0.1, 0.1, 0.1]))
+                min_coords = center - size/2
+                max_coords = center + size/2
+
+            # Create figure with two subplots
+            fig = plt.figure(figsize=(20, 10))
+
+            # === LEFT PANEL: CONTEXT VIEW ===
+            ax_context = fig.add_subplot(121, projection='3d')
+
+            # Plot context point cloud
+            if laser_scan.has_colors():
+                context_colors = np.asarray(laser_scan.colors)[context_idx]
+                ax_context.scatter(context_pts[:,0], context_pts[:,1], context_pts[:,2],
+                                 s=0.5, c=context_colors, alpha=0.4)
+            else:
+                ax_context.scatter(context_pts[:,0], context_pts[:,1], context_pts[:,2],
+                                 s=0.5, c=context_pts[:,2], cmap='viridis', alpha=0.4)
+
+            # Draw all objects in context (faded)
+            for j, obj in enumerate(objects):
+                obj_center = np.array(obj['center_scenefun3d'])
+                obj_size = np.array(obj.get('size_m', obj.get('size', [1, 1, 1])))
+                obj_color = object_colors[j % len(object_colors)]
+
+                half_size = obj_size / 2
+                corners = []
+                for dx in [-1, 1]:
+                    for dy in [-1, 1]:
+                        for dz in [-1, 1]:
+                            corner = obj_center + half_size * np.array([dx, dy, dz])
+                            corners.append(corner)
+
+                corners = np.array(corners)
+                edges = [
+                    (0, 1), (2, 3), (4, 5), (6, 7),
+                    (0, 2), (1, 3), (4, 6), (5, 7),
+                    (0, 4), (1, 5), (2, 6), (3, 7)
+                ]
+
+                for edge in edges:
+                    points = corners[[edge[0], edge[1]]]
+                    ax_context.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                                    color=obj_color, alpha=0.3, linewidth=2)
+
+                ax_context.scatter(obj_center[0], obj_center[1], obj_center[2],
+                                 c=obj_color, s=100, alpha=0.3, marker='o')
+
+            # Draw all affordances with current one highlighted
+            for j, other_aff in enumerate(affordances):
+                if 'min_coords' in other_aff and 'max_coords' in other_aff:
+                    other_min_coords = np.array(other_aff['min_coords'])
+                    other_max_coords = np.array(other_aff['max_coords'])
+                    other_center = np.array(other_aff['center'])
+
+                    # Highlight current affordance
+                    alpha = 1.0 if j == i else 0.3
+                    linewidth = 4 if j == i else 1
+                    marker_size = 300 if j == i else 50
+
+                    corners = []
+                    for dx in [other_min_coords[0], other_max_coords[0]]:
+                        for dy in [other_min_coords[1], other_max_coords[1]]:
+                            for dz in [other_min_coords[2], other_max_coords[2]]:
+                                corners.append([dx, dy, dz])
+
+                    corners = np.array(corners)
+                    for edge in edges:
+                        points = corners[[edge[0], edge[1]]]
+                        ax_context.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                                        color='purple', alpha=alpha, linewidth=linewidth, linestyle='--')
+
+                    ax_context.scatter(other_center[0], other_center[1], other_center[2],
+                                     c='purple', s=marker_size, alpha=alpha, marker='^',
+                                     edgecolors='white', linewidth=1)
+
+            # Add ROI highlight box
+            roi_padding = np.maximum(size * 1.5, [0.3, 0.3, 0.3])
+            roi_min = center - roi_padding
+            roi_max = center + roi_padding
+
+            roi_corners = []
+            for dx in [roi_min[0], roi_max[0]]:
+                for dy in [roi_min[1], roi_max[1]]:
+                    for dz in [roi_min[2], roi_max[2]]:
+                        roi_corners.append([dx, dy, dz])
+
+            roi_corners = np.array(roi_corners)
+            for edge in edges:
+                points = roi_corners[[edge[0], edge[1]]]
+                ax_context.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                                color='lime', alpha=0.8, linewidth=3, linestyle=':')
+
+            # Context view settings
+            task_name = aff.get('task_description', 'Unknown task')
+            ax_context.set_title(f'CONTEXT: Affordance "{task_name[:25]}..." Location\n(Green box shows zoomed region)',
+                               fontsize=14, weight='bold')
+            ax_context.set_xlabel('X (meters)', fontsize=10)
+            ax_context.set_ylabel('Y (meters)', fontsize=10)
+            ax_context.set_zlabel('Z (meters)', fontsize=10)
+
+            # Set context limits
+            all_points = context_pts
+            max_range = np.array([
+                np.max(all_points[:, j]) - np.min(all_points[:, j])
+                for j in range(3)
+            ]).max() / 2.0
+
+            mid_x = np.mean(all_points[:, 0])
+            mid_y = np.mean(all_points[:, 1])
+            mid_z = np.mean(all_points[:, 2])
+
+            ax_context.set_xlim(mid_x - max_range, mid_x + max_range)
+            ax_context.set_ylim(mid_y - max_range, mid_y + max_range)
+            ax_context.set_zlim(mid_z - max_range, mid_z + max_range)
+
+            # === RIGHT PANEL: ZOOMED VIEW ===
+            ax_zoom = fig.add_subplot(122, projection='3d')
+
+            # Get ROI points
+            roi_padding = np.maximum(size * 1.5, [0.3, 0.3, 0.3])
+            min_roi = center - roi_padding
+            max_roi = center + roi_padding
+
+            mask = ((pts >= min_roi) & (pts <= max_roi)).all(axis=1)
+            roi_pts = pts[mask]
+
+            if len(roi_pts) < 50:
+                roi_padding *= 2
+                min_roi = center - roi_padding
+                max_roi = center + roi_padding
+                mask = ((pts >= min_roi) & (pts <= max_roi)).all(axis=1)
+                roi_pts = pts[mask]
+
+            if len(roi_pts) > 10000:
+                roi_idx = np.random.choice(len(roi_pts), size=10000, replace=False)
+                roi_pts = roi_pts[roi_idx]
+
+            # Plot ROI point cloud
+            if len(roi_pts) > 0:
+                ax_zoom.scatter(roi_pts[:,0], roi_pts[:,1], roi_pts[:,2],
+                               s=3, c=roi_pts[:,2], cmap='viridis', alpha=0.8)
+
+            # Draw current affordance bounding box
+            corners = []
+            for dx in [min_coords[0], max_coords[0]]:
+                for dy in [min_coords[1], max_coords[1]]:
+                    for dz in [min_coords[2], max_coords[2]]:
+                        corners.append([dx, dy, dz])
+
+            corners = np.array(corners)
+            for edge in edges:
+                points = corners[[edge[0], edge[1]]]
+                ax_zoom.plot3D(points[:, 0], points[:, 1], points[:, 2],
+                              color='purple', alpha=0.9, linewidth=5, linestyle='-')
+
+            # Add affordance center marker
+            ax_zoom.scatter(center[0], center[1], center[2],
+                           c='purple', s=500, alpha=1.0, marker='^',
+                           edgecolors='white', linewidth=3)
+
+            # Zoom view settings
+            elev, azim = calculate_best_view_angle(center, size)
+            ax_zoom.view_init(elev=elev, azim=azim)
+
+            ax_zoom.set_title(f'ZOOM: Affordance Detail View\nTask: {task_name}\nPoints: {aff["point_count"]} | Size: [{size[0]:.3f}m × {size[1]:.3f}m × {size[2]:.3f}m]',
+                            fontsize=14, weight='bold')
+            ax_zoom.set_xlabel('X (meters)', fontsize=10)
+            ax_zoom.set_ylabel('Y (meters)', fontsize=10)
+            ax_zoom.set_zlabel('Z (meters)', fontsize=10)
+
+            # Set zoom limits
+            margin = np.maximum(size.max() * 0.8, 0.2)
+            ax_zoom.set_xlim(center[0] - margin, center[0] + margin)
+            ax_zoom.set_ylim(center[1] - margin, center[1] + margin)
+            ax_zoom.set_zlim(center[2] - margin, center[2] + margin)
+
+            # Add overall title
+            fig.suptitle(f'Side-by-Side View: Affordance {i+1} - {task_name[:30]}... (ID: {aff["id"][:8]})',
+                        fontsize=16, weight='bold', y=0.95)
+
+            plt.tight_layout()
+
+            # Save side-by-side affordance visualization
+            task_safe = task_name.lower().replace(' ', '_').replace('/', '_')[:20]
+            aff_filename = f"sidebyside_affordance_{i+1}_{task_safe}_{aff['id'][:8]}.png"
+            output_file = affordances_dir / aff_filename
+            plt.savefig(output_file, dpi=300, bbox_inches='tight')
+            print(f"   🎯🔍 Affordance {i+1} ({task_name[:20]}...) side-by-side saved to: {aff_filename}")
+            plt.close()
+
+        print(f"✅ Side-by-side visualizations created: {len(objects)} objects, {len(affordances)} affordances")
+
+    except Exception as e:
+        print(f"❌ Error creating side-by-side visualizations: {e}")
+        import traceback
+        traceback.print_exc()
+
+def create_labeled_point_cloud_visualizations(results, output_dir, results_file):
+    """Create labeled point cloud visualizations."""
+    if create_labeled_point_clouds is None:
+        print("⚠️ Skipping labeled point cloud visualization - labeler not available")
+        return
+
+    try:
+        print("\n🏷️ Creating labeled point cloud visualizations...")
+        create_labeled_point_clouds(results_file, output_dir)
+
+    except Exception as e:
+        print(f"❌ Error creating labeled point cloud visualizations: {e}")
+        import traceback
+        traceback.print_exc()
 
 def create_scene_graph_diagram(results, output_dir):
     """Create a hierarchical scene graph diagram."""
@@ -445,6 +1366,10 @@ def main():
     try:
         create_coordinate_comparison_plot(results, output_dir)
         create_3d_scene_visualization(results, output_dir)
+        create_point_cloud_visualization(results, output_dir)  # New enhanced visualization
+        create_individual_visualizations(results, output_dir)  # Individual focused visualizations
+        create_side_by_side_visualizations(results, output_dir)  # Side-by-side context + zoom views
+        create_labeled_point_cloud_visualizations(results, output_dir, results_file)  # Labeled PLY files
         create_scene_graph_diagram(results, output_dir)
         create_transformation_validation_plot(results, output_dir)
 
